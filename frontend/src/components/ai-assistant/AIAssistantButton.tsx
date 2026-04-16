@@ -228,8 +228,9 @@ export function AIAssistantButton() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
+        style={{ bottom: '2rem', right: '2rem', left: 'auto' }}
         className={cn(
-          'fixed bottom-8 left-8 z-[9999] w-16 h-16 rounded-2xl',
+          'fixed z-[9999] w-16 h-16 rounded-2xl',
           'flex items-center justify-center',
           'transition-all duration-500 ease-out',
           'group relative overflow-hidden',
@@ -263,10 +264,11 @@ export function AIAssistantButton() {
       {/* Panel */}
       {isOpen && (
         <div 
+          style={{ bottom: '6rem', right: '1.5rem', left: 'auto' }}
           className={cn(
-            'fixed bottom-24 left-6 z-[9998] w-[360px]',
+            'fixed z-[9998] w-[360px]',
             'rounded-3xl overflow-hidden',
-            'animate-scale-in origin-bottom-left',
+            'animate-scale-in origin-bottom-right',
             'shadow-2xl shadow-black/50'
           )}
         >
@@ -422,15 +424,15 @@ export function AIAssistantButton() {
                   {/* Controls */}
                   <div className="flex items-center justify-center gap-4 pt-2">
                     <button
-                      onClick={toggleMute}
+                      onClick={toggleScreenShare}
                       className={cn(
                         'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300',
-                        !isMuted 
+                        isScreenSharing 
                           ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-error/15 hover:bg-error/25 text-error border border-error/30'
+                          : 'bg-white/5 hover:bg-white/10 text-textMuted border border-white/10'
                       )}
                     >
-                      {!isMuted ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
+                      {isScreenSharing ? <ScreenShare className="w-6 h-6" /> : <ScreenShareOff className="w-6 h-6" />}
                     </button>
                     
                     <button
@@ -441,15 +443,15 @@ export function AIAssistantButton() {
                     </button>
 
                     <button
-                      onClick={toggleScreenShare}
+                      onClick={toggleMute}
                       className={cn(
                         'w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300',
-                        isScreenSharing 
+                        !isMuted 
                           ? 'bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-white/5 hover:bg-white/10 text-textMuted border border-white/10'
+                          : 'bg-error/15 hover:bg-error/25 text-error border border-error/30'
                       )}
                     >
-                      {isScreenSharing ? <ScreenShare className="w-6 h-6" /> : <ScreenShareOff className="w-6 h-6" />}
+                      {!isMuted ? <Mic className="w-6 h-6" /> : <MicOff className="w-6 h-6" />}
                     </button>
                   </div>
 

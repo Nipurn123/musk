@@ -123,3 +123,25 @@ export const endpoints = {
   findFile: () => "/find/file",
   findSymbol: () => "/find/symbol",
 }
+
+export async function fetchDirect<T>(endpoint: string, directory?: string): Promise<T> {
+  const { serverUrl, apiKey } = useAuthStore.getState()
+  const dir = directory || getDefaultDirectory()
+  const separator = endpoint.includes("?") ? "&" : "?"
+  const url = `${serverUrl || ""}${endpoint}${separator}directory=${encodeURIComponent(dir)}`
+  
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+      ...(apiKey ? { "X-API-Key": apiKey } : {}),
+    },
+  })
+  
+  if (!response.ok) {
+    const text = await response.text()
+    throw new Error(`HTTP ${response.status}: ${text}`)
+  }
+  
+  return response.json()
+}

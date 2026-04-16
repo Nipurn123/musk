@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import {
   X,
   File,
@@ -17,6 +17,7 @@ import {
   FolderPlus,
   Trash2,
   Edit2,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react"
 import { useFileTree, type UseFileTreeOptions, type TreeNode } from "../hooks/useFileTree"
@@ -25,6 +26,7 @@ interface FileTreeProps extends UseFileTreeOptions {
   onClose?: () => void
   className?: string
   selectedPath?: string
+  newFiles?: string[]
 }
 
 const FILE_ICONS: Record<string, LucideIcon> = {
@@ -62,11 +64,13 @@ const FILE_COLORS: Record<string, string> = {
   ".jpeg": "text-green-400",
 }
 
-export function FileTree({ onClose, className = "", selectedPath: externalSelectedPath, ...options }: FileTreeProps) {
+export function FileTree({ onClose, className = "", selectedPath: externalSelectedPath, newFiles = [], ...options }: FileTreeProps) {
   const { tree, loading, error, expanded, selectedPath: internalSelectedPath, refresh, toggleExpand, expandAll, collapseAll, selectFile } =
     useFileTree(options)
 
   const selectedPath = externalSelectedPath || internalSelectedPath
+
+  const newFilesSet = useMemo(() => new Set(newFiles), [newFiles])
 
   const [contextMenu, setContextMenu] = useState<{
     x: number
@@ -113,6 +117,7 @@ export function FileTree({ onClose, className = "", selectedPath: externalSelect
     const isExpanded = expanded.has(node.path)
     const isFolder = node.type === "directory"
     const isSelected = selectedPath === node.path
+    const isNew = newFilesSet.has(node.path)
 
     return (
       <div key={node.path}>
@@ -127,7 +132,7 @@ export function FileTree({ onClose, className = "", selectedPath: externalSelect
           onContextMenu={(e) => handleContextMenu(e, node)}
           className={`w-full flex items-center gap-2 px-2 py-1.5 rounded text-xs text-left transition-all duration-150 group ${
             isSelected ? "bg-primary/20 text-primary" : "hover:bg-surfaceHover text-textSecondary"
-          } ${node.ignored ? "opacity-50" : ""}`}
+          } ${node.ignored ? "opacity-50" : ""} ${isNew ? "bg-emerald-500/10 hover:bg-emerald-500/15" : ""}`}
           style={{ paddingLeft: `${depth * 12 + 8}px` }}
         >
           {isFolder && (
@@ -138,6 +143,12 @@ export function FileTree({ onClose, className = "", selectedPath: externalSelect
           {!isFolder && <span className="w-3" />}
           {getFileIcon(node)}
           <span className="truncate flex-1">{node.name}</span>
+          {isNew && (
+            <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-full">
+              <Sparkles className="w-2.5 h-2.5" />
+              new
+            </span>
+          )}
           <MoreVertical className="w-3 h-3 text-textMuted opacity-0 group-hover:opacity-100 transition-opacity" />
         </button>
         {isFolder && isExpanded && (

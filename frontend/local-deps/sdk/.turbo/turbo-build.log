@@ -1,0 +1,50 @@
+
+[0m[2m[35m$[0m [2m[1m./script/build.ts[0m
+$ bun run --conditions=browser ./src/index.ts generate
+
+[36m888   |                           e      888~-_   888[39m
+[36m888___|  e88~~8e  Y88b  /        d8b     888   \  888[39m
+[36m888   | d888  88b  Y888/        /Y88b    888    | 888[39m
+[36m888   | 8888__888   Y8/        /  Y88b   888   /  888[39m
+[36m888   | Y888    ,    Y        /____Y88b  888_-~   888[39m
+[36m888   |  "88___/    /        /      Y88b 888      888[39m
+[36m                  _/[39m
+
+[90m@hey-api/openapi-ts v0.88.1[39m
+
+[90m[Job 1] [39m⏳ [36mGenerating from 1 input:[39m
+[90m[Job 1] [39m[36m  [1] [39m./openapi.json
+[90m[Job 1] [39m[32m✅ Done![39m Your output is in [96m/Users/nipurnagarwal/Desktop/khufia/opencode/packages/sdk/js/src/v2/gen[39m
+src/gen/client.gen.ts 44ms (unchanged)
+src/gen/client/client.gen.ts 34ms (unchanged)
+src/gen/client/index.ts 2ms (unchanged)
+src/gen/client/types.gen.ts 21ms (unchanged)
+src/gen/client/utils.gen.ts 31ms (unchanged)
+src/gen/core/auth.gen.ts 4ms (unchanged)
+src/gen/core/bodySerializer.gen.ts 8ms (unchanged)
+src/gen/core/params.gen.ts 38ms (unchanged)
+src/gen/core/pathSerializer.gen.ts 16ms (unchanged)
+src/gen/core/queryKeySerializer.gen.ts 7ms (unchanged)
+src/gen/core/serverSentEvents.gen.ts 17ms (unchanged)
+src/gen/core/types.gen.ts 4ms (unchanged)
+src/gen/core/utils.gen.ts 7ms (unchanged)
+src/gen/sdk.gen.ts 58ms (unchanged)
+src/gen/types.gen.ts 95ms (unchanged)
+src/v2/client.ts 65ms (unchanged)
+src/v2/gen/client.gen.ts 7ms
+src/v2/gen/client/client.gen.ts 29ms
+src/v2/gen/client/index.ts 3ms
+src/v2/gen/client/types.gen.ts 18ms
+src/v2/gen/client/utils.gen.ts 35ms
+src/v2/gen/core/auth.gen.ts 4ms
+src/v2/gen/core/bodySerializer.gen.ts 7ms
+src/v2/gen/core/params.gen.ts 13ms
+src/v2/gen/core/pathSerializer.gen.ts 15ms
+src/v2/gen/core/queryKeySerializer.gen.ts 10ms
+src/v2/gen/core/serverSentEvents.gen.ts 15ms
+src/v2/gen/core/types.gen.ts 5ms
+src/v2/gen/core/utils.gen.ts 8ms
+src/v2/gen/sdk.gen.ts 130ms
+src/v2/gen/types.gen.ts 83ms
+src/v2/index.ts 2ms (unchanged)
+src/v2/server.ts 7ms (unchanged)

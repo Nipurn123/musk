@@ -16,6 +16,7 @@ import {
 } from "lucide-react"
 import { clsx } from "clsx"
 import { useSDK } from "../../context"
+import { useGlobalStore } from "../../store"
 import { Button } from "../ui"
 import { FileTree } from "../FileTree"
 
@@ -50,11 +51,20 @@ function getLanguage(filename: string): string {
 
 export function CodeEditor() {
   const { client } = useSDK()
+  const { currentSessionId, diffs } = useGlobalStore()
   const [openFiles, setOpenFiles] = useState<OpenFile[]>([])
   const [activeFile, setActiveFile] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [savingFiles, setSavingFiles] = useState<Set<string>>(new Set())
+
+  const newFiles = useMemo(() => {
+    if (!currentSessionId) return []
+    const sessionDiffs = diffs.get(currentSessionId) || []
+    return sessionDiffs
+      .filter((d) => !d.before || d.before.trim() === "")
+      .map((d) => d.file)
+  }, [currentSessionId, diffs])
 
   const handleSelect = useCallback(
     async (path: string) => {
@@ -138,6 +148,7 @@ export function CodeEditor() {
         <FileTree
           onFileClick={(node) => handleSelect(node.path)}
           selectedPath={activeFile || undefined}
+          newFiles={newFiles}
           className="border-0 bg-transparent"
         />
       </div>

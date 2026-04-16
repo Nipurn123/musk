@@ -13,13 +13,17 @@ import {
   FileCode,
   Loader2,
   AlertCircle,
+  FilePlus,
+  Folder,
+  Sparkles,
 } from "lucide-react"
 import { useGlobalStore } from "../store"
-import { api, endpoints } from "../lib/api"
+import { fetchDirect, endpoints } from "../lib/api"
 import { clsx } from "clsx"
 import type { FileDiff } from "../types"
 
 type ViewMode = "unified" | "split"
+type DiffType = "created" | "modified" | "deleted"
 
 interface SessionDiffViewerProps {
   sessionId: string
@@ -191,6 +195,19 @@ function SplitDiffView({ before, after, file }: { before: string; after: string;
   )
 }
 
+function getDiffType(diff: FileDiff): DiffType {
+  if (!diff.before || diff.before.trim() === "") return "created"
+  if (!diff.after || diff.after.trim() === "") return "deleted"
+  return "modified"
+}
+
+function formatFolderPath(filePath: string): { folder: string; filename: string } {
+  const parts = filePath.split("/")
+  const filename = parts.pop() || filePath
+  const folder = parts.length > 0 ? parts.join("/") : ""
+  return { folder, filename }
+}
+
 function FileDiffCard({
   diff,
   isExpanded,
@@ -204,18 +221,55 @@ function FileDiffCard({
 }) {
   const ext = getFileExtension(diff.file)
   const language = getLanguageFromExtension(ext)
+  const diffType = getDiffType(diff)
+  const { folder, filename } = formatFolderPath(diff.file)
 
   return (
-    <div className="border-b border-border/30 last:border-b-0">
+    <div className={clsx(
+      "border-b border-border/30 last:border-b-0 transition-all",
+      diffType === "created" && "bg-emerald-500/5",
+      diffType === "deleted" && "bg-red-500/5"
+    )}>
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surfaceHover/50 transition-all group"
+        className={clsx(
+          "w-full flex items-center gap-3 px-4 py-3 hover:bg-surfaceHover/50 transition-all group",
+          diffType === "created" && "hover:bg-emerald-500/10"
+        )}
       >
-        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-          <FileCode className="w-4 h-4 text-primary" />
+        <div className={clsx(
+          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+          diffType === "created" ? "bg-emerald-500/20" : "bg-primary/10"
+        )}>
+          {diffType === "created" ? (
+            <FilePlus className="w-4 h-4 text-emerald-400" />
+          ) : diffType === "deleted" ? (
+            <FileCode className="w-4 h-4 text-red-400" />
+          ) : (
+            <FileCode className="w-4 h-4 text-primary" />
+          )}
         </div>
-        <div className="flex-1 text-left">
-          <div className="text-sm font-medium truncate">{diff.file}</div>
+        <div className="flex-1 text-left min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium truncate">{filename}</span>
+            {diffType === "created" && (
+              <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+                <Sparkles className="w-2.5 h-2.5" />
+                new
+              </span>
+            )}
+            {diffType === "deleted" && (
+              <span className="text-[10px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded-full shrink-0">
+                deleted
+              </span>
+            )}
+          </div>
+          {folder && (
+            <div className="flex items-center gap-1 text-[10px] text-textMuted mt-0.5 truncate">
+              <Folder className="w-2.5 h-2.5 shrink-0" />
+              <span className="truncate">{folder}</span>
+            </div>
+          )}
           <div className="text-[10px] text-textMuted mt-0.5">{language}</div>
         </div>
         <div className="flex items-center gap-3 mr-3">
@@ -241,7 +295,22 @@ function FileDiffCard({
 
       {isExpanded && (
         <div className="bg-background border-t border-border/30">
-          {viewMode === "unified" ? (
+          {diffType === "created" ? (
+            <div className="overflow-x-auto">
+              <div className="px-4 py-2 text-xs text-emerald-400 bg-emerald-500/10 border-b border-border/30 font-medium">
+                New file created with {diff.additions} lines
+              </div>
+              {diff.after.split("\n").map((line, i) => (
+                <div key={i} className="flex font-mono text-xs leading-5 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
+                  <div className="w-12 px-2 text-right text-textMuted/40 border-r border-border/30 select-none shrink-0 bg-surface/50">
+                    {i + 1}
+                  </div>
+                  <div className="w-6 text-center text-emerald-400 select-none shrink-0">+</div>
+                  <div className="px-3 flex-1 whitespace-pre text-textSecondary">{line}</div>
+                </div>
+              ))}
+            </div>
+          ) : viewMode === "unified" ? (
             <div className="overflow-x-auto">
               {parseUnifiedDiff(diff.after).map((line, i) => (
                 <DiffLine key={i} {...line} />
@@ -281,7 +350,7 @@ export function SessionDiffViewer({ sessionId, onClose }: SessionDiffViewerProps
     setError(null)
 
     try {
-      const response = await api.get<FileDiff[]>(endpoints.sessionDiff(sessionId))
+      const response = await fetchDirect<FileDiff[]>(endpoints.sessionDiff(sessionId))
       setDiffs(sessionId, response)
     } catch (err) {
       console.error("Failed to fetch diffs:", err)
@@ -311,6 +380,32 @@ export function SessionDiffViewer({ sessionId, onClose }: SessionDiffViewerProps
 
   const totalAdditions = useMemo(() => sessionDiffs.reduce((sum, d) => sum + d.additions, 0), [sessionDiffs])
   const totalDeletions = useMemo(() => sessionDiffs.reduce((sum, d) => sum + d.deletions, 0), [sessionDiffs])
+
+  const { createdFiles, modifiedFiles, deletedFiles } = useMemo(() => {
+    const created: FileDiff[] = []
+    const modified: FileDiff[] = []
+    const deleted: FileDiff[] = []
+    
+    for (const diff of sessionDiffs) {
+      const type = getDiffType(diff)
+      if (type === "created") created.push(diff)
+      else if (type === "deleted") deleted.push(diff)
+      else modified.push(diff)
+    }
+    
+    return { createdFiles: created, modifiedFiles: modified, deletedFiles: deleted }
+  }, [sessionDiffs])
+
+  const filesByFolder = useMemo(() => {
+    const grouped = new Map<string, FileDiff[]>()
+    for (const file of createdFiles) {
+      const { folder } = formatFolderPath(file.file)
+      const key = folder || "(root)"
+      if (!grouped.has(key)) grouped.set(key, [])
+      grouped.get(key)!.push(file)
+    }
+    return grouped
+  }, [createdFiles])
 
   if (isLoading) {
     return (
@@ -423,6 +518,46 @@ export function SessionDiffViewer({ sessionId, onClose }: SessionDiffViewerProps
           )}
         </div>
       </div>
+
+      {createdFiles.length > 0 && (
+        <div className="px-4 py-3 bg-emerald-500/5 border-b border-emerald-500/20">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="w-4 h-4 text-emerald-400" />
+            <span className="text-sm font-semibold text-emerald-400">
+              {createdFiles.length} New File{createdFiles.length !== 1 ? "s" : ""} Created
+            </span>
+          </div>
+          <div className="space-y-1">
+            {Array.from(filesByFolder.entries()).map(([folder, files]) => (
+              <div key={folder} className="flex items-start gap-2">
+                <Folder className="w-3 h-3 text-emerald-400/60 mt-0.5 shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <span className="text-xs text-textMuted">{folder}</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {files.map((f) => {
+                      const { filename } = formatFolderPath(f.file)
+                      return (
+                        <button
+                          key={f.file}
+                          onClick={() => {
+                            toggleFile(f.file)
+                            const idx = sessionDiffs.findIndex(d => d.file === f.file)
+                            if (idx >= 0) setCurrentFileIndex(idx)
+                          }}
+                          className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded transition-colors"
+                        >
+                          <FilePlus className="w-3 h-3" />
+                          {filename}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {sessionDiffs.length > 1 && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-border/30 bg-background/50">
