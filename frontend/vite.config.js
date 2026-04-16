@@ -19,6 +19,7 @@ export default defineConfig({
       protocol: 'wss',
     },
     proxy: {},
+    allowedHosts: ['.emergentcf.cloud'],
   },
   preview: {
     host: '0.0.0.0',
