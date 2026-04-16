@@ -7,26 +7,32 @@ export default {
       colors: {
         background: "hsl(var(--color-background) / <alpha-value>)",
         surface: "hsl(var(--color-surface) / <alpha-value>)",
-        surfaceHover: "hsl(var(--color-surface-hover) / <alpha-value>)",
+        "surface-hover": "hsl(var(--color-surface-hover) / <alpha-value>)",
+        "surface-active": "hsl(var(--color-surface-active) / <alpha-value>)",
         border: "hsl(var(--color-border) / <alpha-value>)",
+        "border-subtle": "hsl(var(--color-border-subtle) / <alpha-value>)",
         textPrimary: "hsl(var(--color-text-primary) / <alpha-value>)",
         textSecondary: "hsl(var(--color-text-secondary) / <alpha-value>)",
         textMuted: "hsl(var(--color-text-muted) / <alpha-value>)",
         primary: "hsl(var(--color-primary) / <alpha-value>)",
         primaryHover: "hsl(var(--color-primary-hover) / <alpha-value>)",
-        primaryGlow: "hsl(var(--color-primary-glow) / <alpha-value>)",
+        accent: "hsl(var(--color-accent) / <alpha-value>)",
         success: "hsl(var(--color-success) / <alpha-value>)",
         warning: "hsl(var(--color-warning) / <alpha-value>)",
         error: "hsl(var(--color-error) / <alpha-value>)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        display: ["Plus Jakarta Sans", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
+      },
+      letterSpacing: {
+        display: "-0.02em",
+        label: "0.1em",
       },
       animation: {
-        "fade-in": "fadeIn 0.3s ease-out",
-        "slide-up": "slideUp 0.3s ease-out",
-        "pulse-slow": "pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        "fade-in": "fadeIn 0.2s ease-out",
+        "slide-up": "slideUp 0.25s ease-out",
       },
       keyframes: {
         fadeIn: {
@@ -34,7 +40,7 @@ export default {
           "100%": { opacity: "1" },
         },
         slideUp: {
-          "0%": { transform: "translateY(10px)", opacity: "0" },
+          "0%": { transform: "translateY(8px)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
         },
       },

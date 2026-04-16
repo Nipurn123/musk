@@ -121,35 +121,31 @@ function DiffLine({
   oldLine?: number
   newLine?: number
 }) {
-  const bgColor =
-    type === "add"
-      ? "bg-emerald-500/10 dark:bg-emerald-500/15"
-      : type === "delete"
-        ? "bg-red-500/10 dark:bg-red-500/15"
-        : type === "header"
-          ? "bg-primary/5"
-          : ""
-  const textColor =
-    type === "add"
-      ? "text-emerald-600 dark:text-emerald-400"
-      : type === "delete"
-        ? "text-red-600 dark:text-red-400"
-        : type === "header"
-          ? "text-primary"
-          : "text-textSecondary"
+  if (type === "header") {
+    return (
+      <div className="flex font-mono text-xs bg-primary/5 text-primary" style={{ minHeight: '1.375rem', lineHeight: '1.375rem' }}>
+        <span className="flex items-start justify-end select-none pr-2 pl-1 text-textMuted/40 border-r border-border/30" style={{ width: '2.3rem' }}></span>
+        <span className="flex items-start justify-center w-3 select-none text-textMuted/40"> </span>
+        <div className="flex-1 pl-0 pr-2"><code className="text-xs" style={{ lineHeight: '1.375rem', whiteSpace: 'pre-wrap' }}>{content}</code></div>
+      </div>
+    )
+  }
+
+  const borderColor = type === "add" ? "border-l-emerald-500" : type === "delete" ? "border-l-red-500" : "border-l-transparent"
+  const bgColor = type === "add" ? "bg-emerald-500/8" : type === "delete" ? "bg-red-500/8" : ""
   const prefix = type === "add" ? "+" : type === "delete" ? "-" : " "
+  const prefixColor = type === "add" ? "text-emerald-400" : type === "delete" ? "text-red-400" : "text-textMuted/40"
 
   return (
-    <div className={clsx("flex font-mono text-xs leading-5", bgColor)}>
-      <div className="w-12 px-2 text-right text-textMuted/40 border-r border-border/30 select-none shrink-0">
-        {oldLine ?? ""}
-      </div>
-      <div className="w-12 px-2 text-right text-textMuted/40 border-r border-border/30 select-none shrink-0">
-        {newLine ?? ""}
-      </div>
-      <div className={clsx("px-3 flex-1 whitespace-pre", textColor)}>
-        <span className="select-none opacity-50 mr-1">{prefix}</span>
-        <span>{content}</span>
+    <div className={clsx("group/line flex border-l-[3px]", borderColor, bgColor)} style={{ minHeight: '1.375rem' }}>
+      <span className="flex items-start justify-end select-none pr-2 font-mono text-xs pl-1 text-textMuted/40 border-r border-border/30" style={{ minHeight: '1.375rem', lineHeight: '1.375rem', width: '2.3rem' }}>
+        {newLine ?? oldLine ?? ""}
+      </span>
+      <span className={clsx("flex items-start justify-center font-mono text-xs select-none relative w-3", prefixColor)} style={{ minHeight: '1.375rem', lineHeight: '1.375rem' }}>
+        <span>{prefix}</span>
+      </span>
+      <div className="flex-1 flex items-start pl-0 pr-2 min-w-0 font-mono" style={{ minHeight: '1.375rem' }}>
+        <code className="font-mono text-xs break-all text-textSecondary" style={{ lineHeight: '1.375rem', whiteSpace: 'pre-wrap' }}>{content}</code>
       </div>
     </div>
   )
@@ -225,88 +221,52 @@ function FileDiffCard({
   const { folder, filename } = formatFolderPath(diff.file)
 
   return (
-    <div className={clsx(
-      "border-b border-border/30 last:border-b-0 transition-all",
-      diffType === "created" && "bg-emerald-500/5",
-      diffType === "deleted" && "bg-red-500/5"
-    )}>
+    <div className="border-b border-border/20 last:border-b-0">
       <button
         onClick={onToggle}
-        className={clsx(
-          "w-full flex items-center gap-3 px-4 py-3 hover:bg-surfaceHover/50 transition-all group",
-          diffType === "created" && "hover:bg-emerald-500/10"
-        )}
+        className="w-full flex items-center gap-2 px-3 py-2.5 hover:bg-surface-hover/50 transition-colors group"
       >
-        <div className={clsx(
-          "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
-          diffType === "created" ? "bg-emerald-500/20" : "bg-primary/10"
-        )}>
-          {diffType === "created" ? (
-            <FilePlus className="w-4 h-4 text-emerald-400" />
-          ) : diffType === "deleted" ? (
-            <FileCode className="w-4 h-4 text-red-400" />
-          ) : (
-            <FileCode className="w-4 h-4 text-primary" />
+        {isExpanded ? (
+          <ChevronDown className="w-3.5 h-3.5 text-textMuted/60 shrink-0" />
+        ) : (
+          <ChevronRight className="w-3.5 h-3.5 text-textMuted/60 shrink-0" />
+        )}
+        <span className="text-[13px] text-textSecondary truncate flex-1 text-left">
+          {filename}
+          <span className="text-textMuted/50"> · </span>
+          <span className="text-textMuted uppercase text-[11px]">{ext || language}</span>
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          {diffType === "created" && (
+            <span className="text-[10px] text-emerald-400 font-medium">NEW</span>
           )}
-        </div>
-        <div className="flex-1 text-left min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium truncate">{filename}</span>
-            {diffType === "created" && (
-              <span className="flex items-center gap-1 text-[10px] text-emerald-400 bg-emerald-500/20 px-1.5 py-0.5 rounded-full shrink-0">
-                <Sparkles className="w-2.5 h-2.5" />
-                new
-              </span>
-            )}
-            {diffType === "deleted" && (
-              <span className="text-[10px] text-red-400 bg-red-500/20 px-1.5 py-0.5 rounded-full shrink-0">
-                deleted
-              </span>
-            )}
-          </div>
-          {folder && (
-            <div className="flex items-center gap-1 text-[10px] text-textMuted mt-0.5 truncate">
-              <Folder className="w-2.5 h-2.5 shrink-0" />
-              <span className="truncate">{folder}</span>
-            </div>
+          {diffType === "deleted" && (
+            <span className="text-[10px] text-red-400 font-medium">DEL</span>
           )}
-          <div className="text-[10px] text-textMuted mt-0.5">{language}</div>
-        </div>
-        <div className="flex items-center gap-3 mr-3">
           {diff.additions > 0 && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
-              <Plus className="w-3.5 h-3.5" />
-              {diff.additions}
-            </span>
+            <span className="text-[11px] text-emerald-400">+{diff.additions}</span>
           )}
           {diff.deletions > 0 && (
-            <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400">
-              <Minus className="w-3.5 h-3.5" />
-              {diff.deletions}
-            </span>
+            <span className="text-[11px] text-red-400">-{diff.deletions}</span>
           )}
         </div>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-textMuted group-hover:text-primary transition-colors" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-textMuted group-hover:text-primary transition-colors" />
-        )}
       </button>
 
       {isExpanded && (
-        <div className="bg-background border-t border-border/30">
+        <div className="bg-background border-t border-border/20">
           {diffType === "created" ? (
             <div className="overflow-x-auto">
-              <div className="px-4 py-2 text-xs text-emerald-400 bg-emerald-500/10 border-b border-border/30 font-medium">
-                New file created with {diff.additions} lines
-              </div>
               {diff.after.split("\n").map((line, i) => (
-                <div key={i} className="flex font-mono text-xs leading-5 bg-emerald-500/5 hover:bg-emerald-500/10 transition-colors">
-                  <div className="w-12 px-2 text-right text-textMuted/40 border-r border-border/30 select-none shrink-0 bg-surface/50">
+                <div key={i} className="group/line flex border-l-[3px] border-l-emerald-500 bg-emerald-500/5" style={{ minHeight: '1.375rem' }}>
+                  <span className="flex items-start justify-end select-none pr-2 font-mono text-xs pl-1 text-textMuted/40 border-r border-border/30" style={{ minHeight: '1.375rem', lineHeight: '1.375rem', width: '2.3rem' }}>
                     {i + 1}
+                  </span>
+                  <span className="flex items-start justify-center font-mono text-xs select-none relative w-3 text-emerald-400" style={{ minHeight: '1.375rem', lineHeight: '1.375rem' }}>
+                    <span>+</span>
+                  </span>
+                  <div className="flex-1 flex items-start pl-0 pr-2 min-w-0 font-mono" style={{ minHeight: '1.375rem' }}>
+                    <code className="font-mono text-xs break-all text-textSecondary" style={{ lineHeight: '1.375rem', whiteSpace: 'pre-wrap' }}>{line || "\u00a0"}</code>
                   </div>
-                  <div className="w-6 text-center text-emerald-400 select-none shrink-0">+</div>
-                  <div className="px-3 flex-1 whitespace-pre text-textSecondary">{line}</div>
                 </div>
               ))}
             </div>
@@ -438,82 +398,64 @@ export function SessionDiffViewer({ sessionId, onClose }: SessionDiffViewerProps
   }
 
   return (
-    <div className="h-full flex flex-col bg-surface">
-      <div className="h-14 flex items-center justify-between px-4 border-b border-border/50 shrink-0 bg-surface/80 backdrop-blur-xl">
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <GitBranch className="w-4 h-4 text-primary" />
-          </div>
-          <div>
-            <span className="font-bold text-sm">Session Changes</span>
-            <div className="text-[10px] text-textMuted">
-              {sessionDiffs.length} file{sessionDiffs.length !== 1 ? "s" : ""} changed
-            </div>
-          </div>
+    <div className="h-full flex flex-col bg-background">
+      {/* Header — Claude-style */}
+      <div className="flex items-center justify-between px-2 py-2 bg-surface gap-2">
+        <div className="flex items-center gap-2 flex-1 overflow-hidden pl-3">
+          <h2 className="text-sm font-normal text-textSecondary truncate flex-1 min-w-0">
+            Session Changes
+            <span className="text-textMuted/50"> · </span>
+            <span className="text-textMuted">{sessionDiffs.length} file{sessionDiffs.length !== 1 ? "s" : ""}</span>
+          </h2>
         </div>
-
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 flex-shrink-0">
           {totalAdditions > 0 && (
-            <span className="flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2 py-1 rounded-md">
-              <Plus className="w-3 h-3" />
-              {totalAdditions}
+            <span className="flex items-center gap-1 text-xs text-emerald-400 px-1.5">
+              <Plus className="w-3 h-3" />+{totalAdditions}
             </span>
           )}
           {totalDeletions > 0 && (
-            <span className="flex items-center gap-1 text-xs text-red-600 dark:text-red-400 bg-red-500/10 px-2 py-1 rounded-md">
-              <Minus className="w-3 h-3" />
-              {totalDeletions}
+            <span className="flex items-center gap-1 text-xs text-red-400 px-1.5">
+              <Minus className="w-3 h-3" />-{totalDeletions}
             </span>
           )}
 
-          <div className="w-px h-6 bg-border/50 mx-1" />
-
-          <div className="flex items-center gap-1 bg-background rounded-lg p-1">
+          <div className="flex h-8 whitespace-nowrap">
             <button
               onClick={() => setViewMode("unified")}
               className={clsx(
-                "p-1.5 rounded-md transition-all",
-                viewMode === "unified" ? "bg-primary text-white shadow-sm" : "hover:bg-surfaceHover text-textMuted",
+                "text-xs rounded-l-lg h-full flex items-center justify-center px-2 border-y border-l border-border hover:bg-surface-hover transition-colors",
+                viewMode === "unified" ? "bg-surface-hover text-textPrimary" : "bg-surface text-textMuted",
               )}
-              title="Unified view"
             >
-              <FileText className="w-3.5 h-3.5" />
+              Unified
             </button>
             <button
               onClick={() => setViewMode("split")}
               className={clsx(
-                "p-1.5 rounded-md transition-all",
-                viewMode === "split" ? "bg-primary text-white shadow-sm" : "hover:bg-surfaceHover text-textMuted",
+                "text-xs rounded-r-lg h-full flex items-center justify-center px-2 border border-border hover:bg-surface-hover transition-colors",
+                viewMode === "split" ? "bg-surface-hover text-textPrimary" : "bg-surface text-textMuted",
               )}
-              title="Split view"
             >
-              <Columns className="w-3.5 h-3.5" />
+              Split
             </button>
           </div>
 
-          {sessionDiffs.length > 0 && (
-            <div className="flex gap-1">
-              <button
-                onClick={expandAll}
-                className="px-2 py-1 text-xs text-textMuted hover:text-primary hover:bg-primary/10 rounded transition-colors"
-              >
-                Expand
-              </button>
-              <button
-                onClick={collapseAll}
-                className="px-2 py-1 text-xs text-textMuted hover:text-primary hover:bg-primary/10 rounded transition-colors"
-              >
-                Collapse
-              </button>
-            </div>
-          )}
+          <button
+            onClick={fetchDiffs}
+            className="h-9 w-9 rounded-md shrink-0 flex items-center justify-center hover:bg-surface-hover transition-colors text-textMuted hover:text-textSecondary"
+            title="Refresh"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M10.386 2.51A7.5 7.5 0 1 1 5.499 4H3a.5.5 0 0 1 0-1h3.5a.5.5 0 0 1 .49.402L7 3.5V7a.5.5 0 0 1-1 0V4.879a6.5 6.5 0 1 0 4.335-1.37L10 3.5l-.1-.01a.5.5 0 0 1 .1-.99z" /></svg>
+          </button>
 
           {onClose && (
             <button
               onClick={onClose}
-              className="w-8 h-8 hover:bg-surfaceHover rounded-lg transition-all flex items-center justify-center text-textMuted hover:text-textPrimary"
+              className="h-9 w-9 rounded-md shrink-0 flex items-center justify-center hover:bg-surface-hover transition-colors text-textMuted hover:text-textSecondary"
+              aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <X className="w-5 h-5" />
             </button>
           )}
         </div>

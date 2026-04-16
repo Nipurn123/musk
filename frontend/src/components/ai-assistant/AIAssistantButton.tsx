@@ -228,9 +228,9 @@ export function AIAssistantButton() {
       {/* Floating Button */}
       <button
         onClick={() => setIsOpen(true)}
-        style={{ bottom: '2rem', right: '2rem', left: 'auto' }}
         className={cn(
-          'fixed z-[9999] w-16 h-16 rounded-2xl',
+          'fixed z-[9999] w-16 h-16 rounded-full',
+          'bottom-8 right-8',
           'flex items-center justify-center',
           'transition-all duration-500 ease-out',
           'group relative overflow-hidden',
@@ -245,7 +245,7 @@ export function AIAssistantButton() {
       >
         <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
         <div className={cn(
-          'absolute inset-0 rounded-2xl opacity-0',
+          'absolute inset-0 rounded-full opacity-0',
           status === 'connected' && 'animate-pulse bg-emerald-400/30',
           status === 'connecting' && 'animate-pulse bg-amber-400/30'
         )} />
@@ -264,9 +264,9 @@ export function AIAssistantButton() {
       {/* Panel */}
       {isOpen && (
         <div 
-          style={{ bottom: '6rem', right: '1.5rem', left: 'auto' }}
           className={cn(
             'fixed z-[9998] w-[360px]',
+            'bottom-24 right-6',
             'rounded-3xl overflow-hidden',
             'animate-scale-in origin-bottom-right',
             'shadow-2xl shadow-black/50'

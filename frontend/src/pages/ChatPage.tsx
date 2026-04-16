@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react"
 import {
-  Send,
   Plus,
   MessageSquare,
   Settings,
@@ -8,24 +7,13 @@ import {
   Search,
   Loader2,
   AlertCircle,
-  FolderOpen,
   Terminal as TerminalIcon,
   CheckSquare,
-  PanelLeftClose,
-  PanelLeft,
   Square,
-  Sparkles,
   Code2,
-  Zap,
-  Bot,
-  User,
-  ChevronRight,
-  MoreVertical,
-  Trash2,
-  Copy,
-  Check,
   X,
   GitBranch,
+  ChevronDown,
 } from "lucide-react"
 import { useAuthStore, useGlobalStore, useCurrentSessionMessages, useCurrentSessionStatus } from "../store"
 import { useSDK } from "../context"
@@ -36,6 +24,7 @@ import { TodoList } from "../components/TodoList"
 import { DiffPanel } from "../components/DiffPanel"
 import { SessionDiffViewer } from "../components/SessionDiffViewer"
 import { CodeEditor } from "../components/CodeEditor"
+import { ArtifactViewer } from "../components/ArtifactViewer"
 import { useEventHandler } from "../hooks/useEventHandler"
 import { SkeletonList } from "../components/ui"
 import { MCPSettings } from "../components/MCPSettings"
@@ -50,6 +39,28 @@ import { AgentSelector } from "../components/AgentSelector"
 import { SearchPanel } from "../components/SearchPanel"
 import type { Session, Message, Part, Provider } from "../types"
 import { clsx } from "clsx"
+
+// ─── Icon Rail Button ───
+function RailButton({ icon: Icon, label, active, onClick, badge, className }: {
+  icon: any; label: string; active?: boolean; onClick: () => void; badge?: number; className?: string
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={clsx(
+        "w-10 h-10 rounded-xl flex items-center justify-center transition-colors relative group",
+        active ? "bg-surface-hover text-textPrimary" : "text-textMuted hover:text-textSecondary hover:bg-surface-hover/50",
+        className,
+      )}
+      title={label}
+    >
+      <Icon className="w-[18px] h-[18px]" />
+      {badge && badge > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full bg-primary text-white text-[9px] font-bold flex items-center justify-center">{badge > 9 ? "9+" : badge}</span>
+      )}
+    </button>
+  )
+}
 
 export default function ChatPage() {
   const { logout, serverUrl } = useAuthStore()
@@ -80,20 +91,20 @@ export default function ChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
-  const [showTerminal, setShowTerminal] = useState(false)
-  const [showTodos, setShowTodos] = useState(false)
-  const [activeTab, setActiveTab] = useState<"chat" | "diff" | "editor">("chat")
+  // Panel states
+  const [sidePanel, setSidePanel] = useState<"sessions" | "search" | null>("sessions")
+  const [rightPanel, setRightPanel] = useState<"editor" | "diff" | "terminal" | "todos" | "artifact" | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [artifactData, setArtifactData] = useState<{ filename: string; content: string; isNew: boolean } | null>(null)
+
   const [isAborting, setIsAborting] = useState(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
-  const [copiedSession, setCopiedSession] = useState<string | null>(null)
-  const [showSettings, setShowSettings] = useState(false)
   const [renameSession, setRenameSession] = useState<Session | null>(null)
   const [shareSession, setShareSession] = useState<Session | null>(null)
   const [deleteSession, setDeleteSession] = useState<Session | null>(null)
   const [forkSession, setForkSession] = useState<Session | null>(null)
   const [childrenSession, setChildrenSession] = useState<Session | null>(null)
   const [diffSession, setDiffSession] = useState<Session | null>(null)
-  const [showSearch, setShowSearch] = useState(false)
 
   const isLoading = sessionStatus.type === "busy" || sessionStatus.type === "retry" || isAborting
 
@@ -112,17 +123,26 @@ export default function ChatPage() {
     }
   }, [currentSessionId])
 
+  // Listen for artifact open events from file tool cards
+  useEffect(() => {
+    function handleArtifactOpen(e: CustomEvent<{ filename: string; content: string; isNew: boolean }>) {
+      setArtifactData(e.detail)
+      setRightPanel("artifact")
+    }
+    window.addEventListener("artifact:open", handleArtifactOpen as EventListener)
+    return () => window.removeEventListener("artifact:open", handleArtifactOpen as EventListener)
+  }, [])
+
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === "f") {
         e.preventDefault()
-        setShowSearch((prev) => !prev)
+        setSidePanel(sidePanel === "search" ? null : "search")
       }
     }
-
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [])
+  }, [sidePanel])
 
   const pendingPromptRef = useRef<string | null>(null)
 
@@ -138,7 +158,6 @@ export default function ChatPage() {
       if (promptToSend?.trim()) {
         pendingPromptRef.current = null
         setInput("")
-        
         let sessionId = currentSessionId
         if (!sessionId) {
           try {
@@ -149,11 +168,9 @@ export default function ChatPage() {
             return
           }
         }
-
         const slashIndex = selectedModel.indexOf("/")
         const providerID = selectedModel.substring(0, slashIndex)
         const modelID = selectedModel.substring(slashIndex + 1)
-
         try {
           await client.session.promptAsync({
             sessionID: sessionId,
@@ -177,53 +194,28 @@ export default function ChatPage() {
     }
   }, [currentSessionId, selectedModel, input])
 
+  // ─── Data Loading ───
   async function loadProviders() {
     try {
       const response = await client.config.providers()
       const data = response.data as {
         providers: Array<{
-          id: string
-          name: string
-          source: "env" | "config" | "custom" | "api"
-          env: string[]
-          options: Record<string, unknown>
-          models: Record<string, { status: string }>
+          id: string; name: string; source: "env" | "config" | "custom" | "api"
+          env: string[]; options: Record<string, unknown>; models: Record<string, { status: string }>
         }>
         default: Record<string, string>
       }
-
-      if (!data?.providers || !Array.isArray(data.providers)) {
-        throw new Error("Invalid provider response structure")
-      }
-
-      setProviders(
-        data.providers.map((p) => ({
-          id: p.id,
-          name: p.name,
-          source: p.source,
-          env: p.env,
-          options: p.options,
-          models: p.models,
-        })) as Provider[],
-      )
-
+      if (!data?.providers || !Array.isArray(data.providers)) throw new Error("Invalid provider response")
+      setProviders(data.providers.map((p) => ({ id: p.id, name: p.name, source: p.source, env: p.env, options: p.options, models: p.models })) as Provider[])
       const modelMap: Record<string, string[]> = {}
-      data.providers.forEach((provider) => {
-        modelMap[provider.id] = Object.keys(provider.models)
-      })
-
+      data.providers.forEach((provider) => { modelMap[provider.id] = Object.keys(provider.models) })
       if (data.default?.google) {
         setSelectedModel(`google/${data.default.google}`)
       } else {
         const firstProvider = Object.keys(modelMap)[0]
-        if (firstProvider && modelMap[firstProvider][0]) {
-          setSelectedModel(`${firstProvider}/${modelMap[firstProvider][0]}`)
-        }
+        if (firstProvider && modelMap[firstProvider][0]) setSelectedModel(`${firstProvider}/${modelMap[firstProvider][0]}`)
       }
-    } catch (err) {
-      console.error("Failed to load providers:", err)
-      setError("Failed to load providers")
-    }
+    } catch (err) { console.error("Failed to load providers:", err); setError("Failed to load providers") }
   }
 
   async function loadSessions() {
@@ -231,91 +223,50 @@ export default function ChatPage() {
     try {
       const response = await client.session.list()
       const data = response.data as Session[]
-
-      if (!Array.isArray(data)) {
-        throw new Error("Invalid session response structure")
-      }
-
+      if (!Array.isArray(data)) throw new Error("Invalid session response")
       setSessions(data.sort((a, b) => b.time.updated - a.time.updated))
-    } catch (err) {
-      console.error("Failed to load sessions:", err)
-      setError("Failed to load sessions")
-    } finally {
-      setIsLoadingSessions(false)
-    }
+    } catch (err) { console.error("Failed to load sessions:", err); setError("Failed to load sessions") }
+    finally { setIsLoadingSessions(false) }
   }
 
   async function loadMessages(sessionId: string) {
     try {
       const response = await client.session.messages({ sessionID: sessionId })
       const data = response.data as Array<{ info: Message; parts: Part[] }>
-      const messages: Message[] = []
-
-      data.forEach((msg) => {
-        messages.push(msg.info)
-        setParts(sessionId, msg.info.id, msg.parts)
-      })
-
-      setMessages(
-        sessionId,
-        messages.sort((a, b) => a.time.created - b.time.created),
-      )
-    } catch (err) {
-      console.error("Failed to load messages:", err)
-      setError("Failed to load messages")
-    }
+      const msgs: Message[] = []
+      data.forEach((msg) => { msgs.push(msg.info); setParts(sessionId, msg.info.id, msg.parts) })
+      setMessages(sessionId, msgs.sort((a, b) => a.time.created - b.time.created))
+    } catch (err) { console.error("Failed to load messages:", err); setError("Failed to load messages") }
   }
 
   async function stopSession() {
     if (!currentSessionId || !isLoading) return
     setIsAborting(true)
-    try {
-      await client.session.abort({ sessionID: currentSessionId })
-    } catch (err) {
-      console.error("Failed to stop session:", err)
-    } finally {
-      setIsAborting(false)
-    }
+    try { await client.session.abort({ sessionID: currentSessionId }) }
+    catch (err) { console.error("Failed to stop session:", err) }
+    finally { setIsAborting(false) }
   }
 
   async function createSession(): Promise<string> {
     const response = await client.session.create({})
-    const data = response.data as Session
-    return data.id
+    return (response.data as Session).id
   }
 
   async function sendMessage() {
     if (!input.trim() || isLoading) return
     setError(null)
-
     let sessionId = currentSessionId
     if (!sessionId) {
-      try {
-        sessionId = await createSession()
-        setCurrentSession(sessionId)
-      } catch (err) {
-        setError("Failed to create session")
-        return
-      }
+      try { sessionId = await createSession(); setCurrentSession(sessionId) }
+      catch (err) { setError("Failed to create session"); return }
     }
-
     const userText = input
     setInput("")
-
     const slashIndex = selectedModel.indexOf("/")
     const providerID = selectedModel.substring(0, slashIndex)
     const modelID = selectedModel.substring(slashIndex + 1)
-
     try {
-      await client.session.promptAsync({
-        sessionID: sessionId,
-        parts: [{ type: "text", text: userText }],
-        agent: "build",
-        model: {
-          providerID,
-          modelID,
-        },
-      })
+      await client.session.promptAsync({ sessionID: sessionId, parts: [{ type: "text", text: userText }], agent: "build", model: { providerID, modelID } })
       loadSessions()
     } catch (err) {
       console.error("Failed to send message:", err)
@@ -323,502 +274,343 @@ export default function ChatPage() {
     }
   }
 
-  const filteredSessions = useMemo(
-    () =>
-      sessions.filter(
-        (s) =>
-          s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.id.toLowerCase().includes(searchQuery.toLowerCase()),
-      ),
-    [sessions, searchQuery],
-  )
+  const filteredSessions = useMemo(() =>
+    sessions.filter((s) =>
+      s.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      s.id.toLowerCase().includes(searchQuery.toLowerCase())
+    ), [sessions, searchQuery])
 
   const models: Record<string, string[]> = useMemo(() => {
     const map: Record<string, string[]> = {}
-    providers.forEach((p) => {
-      map[p.id] = Object.keys(p.models)
-    })
+    providers.forEach((p) => { map[p.id] = Object.keys(p.models) })
     return map
   }, [providers])
 
   const currentDiffs = currentSessionId ? diffs.get(currentSessionId) || [] : []
   const currentTodos = currentSessionId ? todos.get(currentSessionId) || [] : []
 
-  return (
-    <div className="h-screen flex bg-background relative overflow-hidden">
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/5 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-accent/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '3s' }} />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-gradient-radial opacity-30" />
-      </div>
+  // ─── Right panel title ───
+  const rightPanelTitle = rightPanel === "editor" ? "Editor" : rightPanel === "diff" ? "Changes" : rightPanel === "terminal" ? "Terminal" : rightPanel === "todos" ? "Tasks" : rightPanel === "artifact" && artifactData ? artifactData.filename.split("/").pop() || "File" : ""
 
-      <div className="w-80 bg-surface/80 backdrop-blur-xl border-r border-border/50 flex flex-col relative z-10 animate-slide-in-right">
-        <div className="p-5 space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative group">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-2xl blur-lg opacity-50 group-hover:opacity-70 transition-opacity duration-300" />
-              <div className="relative w-12 h-12 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/30">
-                <span className="text-white font-bold text-lg">100</span>
-              </div>
-              <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-success rounded-full border-2 border-surface animate-pulse" />
-            </div>
-            <div className="flex-1">
-              <h1 className="font-bold text-lg tracking-tight">100XPrompt</h1>
-              <p className="text-xs text-textMuted">AI Coding Assistant</p>
-            </div>
+  return (
+    <div className="h-screen flex bg-background">
+
+      {/* ═══════════════════ SIDEBAR (Claude text-based) ═══════════════════ */}
+      {sidePanel !== null && (
+        <div className="w-[260px] bg-surface border-r border-border flex flex-col shrink-0">
+          {/* Top nav */}
+          <div className="px-3 pt-3 pb-1 space-y-0.5">
+            <button
+              onClick={() => { setCurrentSession(null) }}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-textSecondary hover:bg-surface-hover transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              New chat
+            </button>
+            <button
+              onClick={() => setSidePanel(sidePanel === "search" ? "sessions" : "search")}
+              className={clsx(
+                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
+                sidePanel === "search" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
+              )}
+            >
+              <Search className="w-4 h-4" />
+              Search
+            </button>
+            <button
+              onClick={() => setShowSettings(true)}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-textSecondary hover:bg-surface-hover transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              Customize
+            </button>
           </div>
 
-          <button
-            onClick={() => setCurrentSession(null)}
-            className="group relative w-full py-3 px-4 rounded-xl font-medium text-white overflow-hidden transition-all duration-300 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30 hover:scale-[1.02] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary/90 to-accent opacity-100" />
-            <div className="absolute inset-0 bg-gradient-to-r from-primary/0 via-white/10 to-primary/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700" />
-            <div className="relative flex items-center justify-center gap-2">
-              <Plus className="w-4 h-4 transition-transform duration-200 group-hover:rotate-90" />
-              New Chat
-            </div>
-          </button>
+          <div className="mx-3 my-2 border-t border-border" />
 
-          <div className="relative group">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-textMuted transition-colors duration-200 group-focus-within:text-primary" />
-            <input
-              type="text"
-              placeholder="Search sessions..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-background/50 border border-border rounded-xl text-sm focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/20 focus:bg-surface transition-all duration-200 placeholder:text-textMuted/70 focus:placeholder:opacity-50"
-            />
+          {/* Section links */}
+          <div className="px-3 space-y-0.5">
+            <button
+              onClick={() => setSidePanel("sessions")}
+              className={clsx(
+                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
+                sidePanel === "sessions" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
+              )}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Chats
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === "diff" ? null : "diff")}
+              className={clsx(
+                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
+                rightPanel === "diff" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
+              )}
+            >
+              <GitBranch className="w-4 h-4" />
+              Changes
+              {currentDiffs.length > 0 && (
+                <span className="ml-auto text-[11px] text-textMuted bg-surface-hover rounded-full px-1.5">{currentDiffs.length}</span>
+              )}
+            </button>
+            <button
+              onClick={() => setRightPanel(rightPanel === "editor" ? null : "editor")}
+              className={clsx(
+                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
+                rightPanel === "editor" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
+              )}
+            >
+              <Code2 className="w-4 h-4" />
+              Code
+            </button>
+          </div>
+
+          {/* Recents label */}
+          {sidePanel === "sessions" && (
+            <>
+              <div className="px-6 pt-4 pb-1.5">
+                <span className="text-[11px] font-medium text-textMuted">Recents</span>
+              </div>
+
+              {/* Sessions list */}
+              <div className="flex-1 overflow-y-auto px-2">
+                {isLoadingSessions ? (
+                  <div className="p-2"><SkeletonList count={5} /></div>
+                ) : (
+                  filteredSessions.map((session) => (
+                    <div
+                      key={session.id}
+                      onClick={() => setCurrentSession(session.id)}
+                      className={clsx(
+                        "w-full px-3 py-1.5 rounded-lg flex items-center gap-2 transition-colors cursor-pointer group text-left mb-px",
+                        currentSessionId === session.id
+                          ? "bg-surface-hover text-textPrimary"
+                          : "text-textSecondary hover:bg-surface-hover/50",
+                      )}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[13px] truncate leading-snug">{session.title || "New Chat"}</div>
+                      </div>
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                        <SessionActions
+                          session={session}
+                          onDelete={(s) => setDeleteSession(s)}
+                          onFork={(s) => setForkSession(s)}
+                          onShare={(s) => setShareSession(s)}
+                          onRename={(s) => setRenameSession(s)}
+                          onViewChildren={(s) => setChildrenSession(s)}
+                          onViewDiff={(s) => setDiffSession(s)}
+                          isCurrentSession={currentSessionId === session.id}
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+
+          {sidePanel === "search" && (
+            <div className="flex-1 overflow-hidden">
+              <SearchPanel
+                onClose={() => setSidePanel("sessions")}
+                onOpenFile={(path, line) => {
+                  setRightPanel("editor")
+                }}
+              />
+            </div>
+          )}
+
+          {/* Bottom */}
+          <div className="p-3 border-t border-border">
+            <button
+              onClick={logout}
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] text-textMuted hover:text-error hover:bg-error/5 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Log out
+            </button>
           </div>
         </div>
+      )}
 
-        <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
-          {isLoadingSessions ? (
-            <SkeletonList count={5} />
-          ) : (
-            filteredSessions.map((session, index) => (
-              <div
-                key={session.id}
-                onClick={() => setCurrentSession(session.id)}
-                className={clsx(
-                  "w-full p-3.5 rounded-xl flex items-start gap-3 transition-all duration-200 text-left group cursor-pointer relative",
-                  "animate-slide-up-fade",
-                  currentSessionId === session.id
-                    ? "bg-gradient-to-br from-primary/15 via-primary/5 to-transparent border border-primary/25 shadow-md shadow-primary/5"
-                    : "hover:bg-surface-hover/70 border border-transparent hover:border-border/50 hover:shadow-sm",
-                )}
-                style={{ animationDelay: `${index * 40}ms` }}
-              >
-                {currentSessionId === session.id && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-10 bg-gradient-to-b from-primary via-accent to-primary rounded-r-full animate-pulse" />
-                )}
-                <div
-                  className={clsx(
-                    "w-9 h-9 rounded-lg flex items-center justify-center shrink-0 transition-all duration-200",
-                    currentSessionId === session.id
-                      ? "bg-gradient-to-br from-primary/25 to-accent/25 text-primary"
-                      : "bg-surface-hover/50 text-textMuted group-hover:bg-primary/10 group-hover:text-primary",
-                  )}
-                >
-                  <MessageSquare size={16} />
-                </div>
-                <div className="flex-1 min-w-0 py-0.5">
-                  <div className="text-sm font-medium truncate mb-0.5 group-hover:text-textPrimary transition-colors duration-150">{session.title || "New Chat"}</div>
-                  <div className="text-[11px] text-textMuted flex items-center gap-1.5">
-                    <span className={clsx(
-                      "w-1.5 h-1.5 rounded-full transition-colors duration-200",
-                      currentSessionId === session.id ? "bg-primary" : "bg-success/50 group-hover:bg-success/70"
-                    )} />
-                    <span>{new Date(session.time.updated).toLocaleDateString()}</span>
-                    <span className="text-textMuted/40">•</span>
-                    <span>{new Date(session.time.updated).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-                </div>
-                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-150 -mr-1">
-                  <SessionActions
-                    session={session}
-                    onDelete={(s) => setDeleteSession(s)}
-                    onFork={(s) => setForkSession(s)}
-                    onShare={(s) => setShareSession(s)}
-                    onRename={(s) => setRenameSession(s)}
-                    onViewChildren={(s) => setChildrenSession(s)}
-                    onViewDiff={(s) => setDiffSession(s)}
-                    isCurrentSession={currentSessionId === session.id}
-                  />
-                </div>
+      {/* ═══════════════════ MAIN CHAT AREA ═══════════════════ */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Error banner */}
+        {error && (
+          <div className="px-5 py-2.5 bg-error/8 border-b border-error/15 flex items-center gap-3">
+            <AlertCircle className="w-4 h-4 text-error shrink-0" />
+            <span className="text-[13px] text-error flex-1">{error}</span>
+            <button onClick={() => setError(null)} className="text-textMuted hover:text-textPrimary"><X className="w-3.5 h-3.5" /></button>
+          </div>
+        )}
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto">
+          {messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center p-8">
+              <div className="text-center max-w-md">
+                <img src="/assets/100X_Prompt.svg" alt="100xprompt" className="w-14 h-14 mx-auto mb-5 object-contain opacity-50" />
+                <h3 className="text-xl font-display font-bold mb-1.5 text-textPrimary">What can I help you build?</h3>
+                <p className="text-textSecondary text-[14px] leading-relaxed">
+                  Write code, fix bugs, explore your codebase, or deploy applications.
+                </p>
               </div>
-            ))
+            </div>
+          ) : (
+            <div className="pb-4">
+              {messages.map((msg) => (
+                <SessionTurn
+                  key={msg.id}
+                  role={msg.role}
+                  parts={msg.parts}
+                  timestamp={new Date(msg.time.created).toISOString()}
+                  isLoading={isLoading && msg.id === messages[messages.length - 1]?.id && msg.role === "assistant"}
+                />
+              ))}
+              <div ref={messagesEndRef} />
+            </div>
           )}
         </div>
 
-        <div className="p-4 border-t border-border/50 space-y-3 bg-surface/50">
-          <div className="space-y-1.5">
-            <label className="text-[10px] uppercase font-semibold text-textMuted/80 px-1 tracking-wider">Active Model</label>
-            <div className="relative group">
-              <select
-                value={selectedModel}
-                onChange={(e) => setSelectedModel(e.target.value)}
-                className="w-full p-2.5 bg-background/50 border border-border rounded-lg text-xs focus:outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/15 transition-all duration-200 cursor-pointer appearance-none pr-8 hover:border-border/70"
+        {/* ─── Input Area (Claude-style) ─── */}
+        <div className="px-4 pb-4 pt-1">
+          <div className="max-w-3xl mx-auto">
+            <form onSubmit={(e) => { e.preventDefault(); sendMessage() }}>
+              <div
+                className="flex flex-col bg-surface rounded-[20px] cursor-text relative transition-all duration-200"
+                style={{ boxShadow: '0 0.25rem 1.25rem hsl(0 0% 0% / 8%), 0 0 0 0.5px hsl(0 0% 100% / 6%)' }}
+                onFocus={(e) => { e.currentTarget.style.boxShadow = '0 0.25rem 1.25rem hsl(0 0% 0% / 16%), 0 0 0 0.5px hsl(0 0% 100% / 10%)' }}
+                onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) e.currentTarget.style.boxShadow = '0 0.25rem 1.25rem hsl(0 0% 0% / 8%), 0 0 0 0.5px hsl(0 0% 100% / 6%)' }}
+                onClick={() => inputRef.current?.focus()}
               >
-                {Object.entries(models).map(([provider, modelList]) =>
-                  modelList.map((model) => (
-                    <option key={`${provider}/${model}`} value={`${provider}/${model}`}>
-                      {provider} / {model}
-                    </option>
-                  )),
-                )}
-              </select>
-              <ChevronRight className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-textMuted rotate-90 pointer-events-none transition-transform duration-200 group-focus-within:text-primary" />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-1.5">
-            <button
-              onClick={() => setShowTerminal(!showTerminal)}
-              className={clsx(
-                "h-10 flex items-center justify-center rounded-lg transition-all duration-200 border focus-visible:ring-2 focus-visible:ring-primary/30",
-                showTerminal
-                  ? "bg-primary/15 border-primary/30 text-primary shadow-sm"
-                  : "hover:bg-surface-hover/80 border-border hover:border-primary/25 hover:shadow-sm",
-              )}
-              title="Toggle Terminal"
-            >
-              <TerminalIcon className={clsx("w-4 h-4 transition-transform duration-200", showTerminal && "scale-110")} />
-            </button>
-            <button
-              onClick={() => setShowTodos(!showTodos)}
-              className={clsx(
-                "h-10 flex items-center justify-center rounded-lg transition-all duration-200 border focus-visible:ring-2 focus-visible:ring-primary/30",
-                showTodos
-                  ? "bg-primary/15 border-primary/30 text-primary shadow-sm"
-                  : "hover:bg-surface-hover/80 border-border hover:border-primary/25 hover:shadow-sm",
-              )}
-              title="Toggle Todos"
-            >
-              <CheckSquare className={clsx("w-4 h-4 transition-transform duration-200", showTodos && "scale-110")} />
-            </button>
-            <button
-              onClick={() => setShowSearch(true)}
-              className="h-10 flex items-center justify-center rounded-lg transition-all duration-200 border border-border hover:border-primary/25 hover:bg-surface-hover/80 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary/30"
-              title="Search (Cmd+Shift+F)"
-            >
-              <Search className="w-4 h-4" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              onClick={() => setShowSettings(true)}
-              className="h-10 flex items-center justify-center gap-2 hover:bg-surface-hover/80 rounded-lg transition-all duration-200 border border-border hover:border-primary/25 text-textSecondary hover:text-primary hover:shadow-sm focus-visible:ring-2 focus-visible:ring-primary/30"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="text-xs font-medium">Settings</span>
-            </button>
-            <button
-              onClick={logout}
-              className="h-10 flex items-center justify-center gap-2 hover:bg-error/8 rounded-lg transition-all duration-200 border border-border hover:border-error/25 text-textSecondary hover:text-error hover:shadow-sm focus-visible:ring-2 focus-visible:ring-error/30"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="text-xs font-medium">Logout</span>
-            </button>
+                <div className="flex flex-col m-3.5 gap-2.5">
+                  <div className="w-full overflow-y-auto max-h-96 min-h-[1.5rem] pl-1.5 pt-0.5">
+                    <textarea
+                      ref={inputRef}
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage() } }}
+                      placeholder="Reply..."
+                      className="w-full bg-transparent border-0 focus:outline-none resize-none min-h-[24px] text-[15px] leading-relaxed placeholder:text-textMuted/50"
+                      disabled={isLoading}
+                      rows={1}
+                    />
+                  </div>
+                  <div className="relative flex gap-2 w-full items-center">
+                    <div className="flex-1 flex items-center min-w-0 gap-1">
+                      <button type="button" className="h-8 w-8 rounded-lg flex items-center justify-center hover:bg-surface-hover transition-colors text-textMuted hover:text-textSecondary" title="Add files">
+                        <Plus className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div className="relative">
+                        <select
+                          value={selectedModel}
+                          onChange={(e) => setSelectedModel(e.target.value)}
+                          className="h-8 pl-2.5 pr-6 rounded-lg text-xs font-medium bg-transparent hover:bg-surface-hover transition-colors cursor-pointer appearance-none text-textSecondary focus:outline-none"
+                        >
+                          {Object.entries(models).map(([provider, modelList]) =>
+                            modelList.map((model) => (
+                              <option key={`${provider}/${model}`} value={`${provider}/${model}`}>{model}</option>
+                            ))
+                          )}
+                        </select>
+                        <ChevronDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-textMuted pointer-events-none opacity-75" />
+                      </div>
+                      <button
+                        type={isLoading ? "button" : "submit"}
+                        onClick={isLoading ? stopSession : undefined}
+                        disabled={!isLoading && !input.trim()}
+                        className={clsx(
+                          "h-8 rounded-lg flex items-center justify-center transition-colors px-1.5",
+                          isLoading ? "text-error hover:bg-error/10"
+                            : input.trim() ? "text-textPrimary hover:bg-surface-hover"
+                            : "text-textMuted/30 cursor-not-allowed",
+                        )}
+                      >
+                        {isLoading ? <Square className="w-5 h-5" /> : (
+                          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor"><path d="M2.925 4.382a1.686 1.686 0 0 1 2.39-1.307l11.712 5.498a1.16 1.16 0 0 1 0 2.104L5.314 16.175a1.686 1.686 0 0 1-2.389-1.307L3.658 11h5.592a.75.75 0 0 0 0-1.5H3.658z" /></svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </form>
+            <p className="mt-2 text-[11px] text-center text-textMuted/50">100xprompt can make mistakes. Verify important information.</p>
           </div>
         </div>
       </div>
 
-      {showSettings && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-          <div className="w-full max-w-2xl max-h-[80vh] bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
-            <div className="h-14 border-b border-border flex items-center px-5 gap-3">
-              <Settings className="w-5 h-5 text-primary" />
-              <span className="font-semibold flex-1">Settings</span>
+      {/* ═══════════════════ RIGHT PANEL (editor / diff / terminal / todos) ═══════════════════ */}
+      {rightPanel && (
+        <div className="w-[420px] bg-surface border-l border-border flex flex-col shrink-0 animate-slide-in-left">
+          {/* Header — artifact has its own, skip for that */}
+          {rightPanel !== "artifact" && (
+            <div className="flex items-center justify-between px-2 py-2 bg-surface gap-2">
+              <div className="flex items-center gap-2 flex-1 overflow-hidden pl-3">
+                <h2 className="text-sm font-normal text-textSecondary truncate">{rightPanelTitle}</h2>
+              </div>
               <button
-                onClick={() => setShowSettings(false)}
-                className="w-8 h-8 hover:bg-surface-hover rounded-lg transition-all flex items-center justify-center text-textMuted hover:text-textPrimary"
+                onClick={() => setRightPanel(null)}
+                className="h-9 w-9 rounded-md shrink-0 flex items-center justify-center hover:bg-surface-hover transition-colors text-textMuted hover:text-textSecondary"
+                aria-label="Close"
               >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+
+          {/* Content */}
+          <div className="flex-1 overflow-hidden">
+            {rightPanel === "artifact" && artifactData && (
+              <ArtifactViewer
+                filename={artifactData.filename}
+                content={artifactData.content}
+                diffType={artifactData.isNew ? "created" : "normal"}
+                onClose={() => { setRightPanel(null); setArtifactData(null) }}
+              />
+            )}
+            {rightPanel === "editor" && <CodeEditor />}
+            {rightPanel === "diff" && (
+              currentSessionId ? <SessionDiffViewer sessionId={currentSessionId} /> : (
+                <div className="h-full flex items-center justify-center">
+                  <p className="text-sm text-textMuted">Select a session to view changes</p>
+                </div>
+              )
+            )}
+            {rightPanel === "terminal" && <Terminal />}
+            {rightPanel === "todos" && (
+              <div className="p-4 overflow-y-auto h-full"><TodoList /></div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══════════════════ SETTINGS MODAL ═══════════════════ */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 animate-fade-in">
+          <div className="w-full max-w-2xl max-h-[80vh] bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden animate-scale-in">
+            <div className="h-12 border-b border-border flex items-center px-5 gap-3">
+              <Settings className="w-4 h-4 text-primary" />
+              <span className="text-[13px] font-display font-semibold flex-1">Settings</span>
+              <button onClick={() => setShowSettings(false)} className="w-7 h-7 rounded-md flex items-center justify-center text-textMuted hover:text-textSecondary hover:bg-surface-hover transition-colors">
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="p-5 overflow-y-auto max-h-[calc(80vh-3.5rem)]">
-              <MCPSettings />
-            </div>
+            <div className="p-5 overflow-y-auto max-h-[calc(80vh-3rem)]"><MCPSettings /></div>
           </div>
         </div>
       )}
 
-      <div className="flex-1 flex flex-col relative z-10">
-        <div className="h-14 border-b border-border/50 flex items-center px-6 bg-surface/70 backdrop-blur-xl sticky top-0 z-20">
-          <div className="flex-1">
-            <h2 className="font-bold text-base tracking-tight">
-              {currentSessionId ? sessions.find((s) => s.id === currentSessionId)?.title || "New Chat" : "New Chat"}
-            </h2>
-            <div className="flex items-center gap-1.5 text-[10px] text-textMuted mt-0.5">
-              <span className={clsx("w-1.5 h-1.5 rounded-full transition-colors duration-200", isLoading ? "bg-warning" : "bg-success")} />
-              <span>Connected to {serverUrl}</span>
-            </div>
-          </div>
-
-          {currentSessionId && (
-            <div className="flex gap-1 bg-surface/60 p-1 rounded-lg border border-border/40">
-              <button
-                onClick={() => setActiveTab("chat")}
-                className={clsx(
-                  "px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-200",
-                  activeTab === "chat"
-                    ? "bg-primary text-white shadow-sm"
-                    : "hover:bg-surface-hover/80 text-textSecondary hover:text-textPrimary",
-                )}
-              >
-                Chat
-              </button>
-              <button
-                onClick={() => setActiveTab("diff")}
-                className={clsx(
-                  "px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5",
-                  activeTab === "diff"
-                    ? "bg-primary text-white shadow-sm"
-                    : "hover:bg-surface-hover/80 text-textSecondary hover:text-textPrimary",
-                )}
-              >
-                Diffs
-                {currentDiffs.length > 0 && (
-                  <span className="px-1.5 py-0.5 text-[9px] font-semibold rounded bg-primary/20">{currentDiffs.length}</span>
-                )}
-              </button>
-              <button
-                onClick={() => setActiveTab("editor")}
-                className={clsx(
-                  "px-3.5 py-1.5 rounded-md text-sm font-medium transition-all duration-200 flex items-center gap-1.5",
-                  activeTab === "editor"
-                    ? "bg-primary text-white shadow-sm"
-                    : "hover:bg-surface-hover/80 text-textSecondary hover:text-textPrimary",
-                )}
-              >
-                <Code2 className="w-3.5 h-3.5" />
-                Editor
-              </button>
-            </div>
-          )}
-        </div>
-
-        {error && (
-          <div className="px-6 py-3 bg-error/10 border-b border-error/20 flex items-center gap-3 animate-slide-up-fade">
-            <div className="w-7 h-7 rounded-lg bg-error/20 flex items-center justify-center shrink-0">
-              <AlertCircle className="w-3.5 h-3.5 text-error" />
-            </div>
-            <span className="text-sm text-error flex-1">{error}</span>
-            <button
-              onClick={() => setError(null)}
-              className="text-textMuted hover:text-textPrimary w-7 h-7 flex items-center justify-center rounded-lg hover:bg-error/10 transition-colors duration-150"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
-        <div className="flex-1 flex overflow-hidden">
-          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-            {activeTab === "chat" ? (
-              <>
-                <div className="flex-1 overflow-y-auto bg-background/50">
-                  {messages.length === 0 ? (
-                    <div className="h-full flex items-center justify-center p-8">
-                      <div className="text-center max-w-xl animate-slide-up-fade">
-                        <div className="relative w-20 h-20 mx-auto mb-6">
-                          <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-accent/30 rounded-2xl blur-xl animate-pulse" />
-                          <div className="relative w-20 h-20 bg-gradient-to-br from-primary/15 to-accent/15 rounded-2xl flex items-center justify-center border border-primary/20">
-                            <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg shadow-primary/30">
-                              <span className="text-white font-bold text-xl">100</span>
-                            </div>
-                          </div>
-                        </div>
-                        <h3 className="text-3xl font-bold mb-3">
-                          <span className="text-gradient-animated">How can I help?</span>
-                        </h3>
-                        <p className="text-textSecondary text-base mb-8 max-w-md mx-auto leading-relaxed">
-                          Build applications, fix bugs, or explore codebases. I'm your AI pair programmer.
-                        </p>
-                        <div className="grid grid-cols-2 gap-3 max-w-md mx-auto">
-                          {[
-                            { icon: Code2, label: "Build a React app" },
-                            { icon: Zap, label: "Refactor auth logic" },
-                            { icon: Sparkles, label: "Write unit tests" },
-                            { icon: Bot, label: "Explain this repo" },
-                          ].map((item, index) => (
-                            <button
-                              key={item.label}
-                              onClick={() => setInput(item.label)}
-                              className="group p-3.5 text-left glass-card rounded-xl hover:border-primary/30 transition-all duration-200 hover-lift animate-slide-up-fade focus-visible:ring-2 focus-visible:ring-primary/30"
-                              style={{ animationDelay: `${index * 60 + 100}ms` }}
-                            >
-                              <item.icon className="w-4 h-4 text-primary mb-2 group-hover:scale-110 transition-transform duration-200" />
-                              <div className="text-sm font-medium">{item.label}</div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="pb-12">
-                      {messages.map((msg, index) => (
-                        <div key={msg.id} className="animate-slide-up-fade" style={{ animationDelay: `${index * 30}ms` }}>
-                          <SessionTurn
-                            role={msg.role}
-                            parts={msg.parts}
-                            timestamp={new Date(msg.time.created).toISOString()}
-                            isLoading={
-                              isLoading && msg.id === messages[messages.length - 1]?.id && msg.role === "assistant"
-                            }
-                          />
-                        </div>
-                      ))}
-                      <div ref={messagesEndRef} />
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-5 pt-0 bg-gradient-to-t from-background via-background/95 to-transparent">
-                  <div className="max-w-3xl mx-auto relative">
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault()
-                        sendMessage()
-                      }}
-                      className="relative group"
-                    >
-                      <div className="absolute -inset-0.5 bg-gradient-to-r from-primary/15 via-accent/15 to-primary/15 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-400" />
-                      <div className="relative bg-surface/95 backdrop-blur-xl rounded-xl overflow-hidden border border-border/50 group-focus-within:border-primary/25 transition-colors duration-200 shadow-lg shadow-black/10">
-                        <div className="flex items-center gap-2 px-3.5 py-2 border-b border-border/25">
-                          <Sparkles className="w-3.5 h-3.5 text-primary/60" />
-                          <span className="text-[11px] text-textMuted font-medium">AI Assistant</span>
-                          <div className="flex-1" />
-                          <div className="flex items-center gap-1.5">
-                            <div className={clsx("w-1.5 h-1.5 rounded-full transition-colors duration-200", isLoading ? "bg-warning" : "bg-success")} />
-                            <span className="text-[10px] text-textMuted">
-                              {isLoading ? "Processing..." : "Ready"}
-                            </span>
-                          </div>
-                        </div>
-                        <textarea
-                          ref={inputRef}
-                          value={input}
-                          onChange={(e) => setInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" && !e.shiftKey) {
-                              e.preventDefault()
-                              sendMessage()
-                            }
-                          }}
-                          placeholder="Ask anything or use / for commands..."
-                          className="w-full px-4 py-3.5 bg-transparent border-0 focus:outline-none resize-none min-h-[64px] max-h-40 text-sm leading-relaxed placeholder:text-textMuted/60"
-                          disabled={isLoading}
-                          rows={1}
-                        />
-                        <div className="flex items-center justify-between px-3.5 pb-3">
-                          <div className="flex items-center gap-1.5">
-                            <kbd className="px-1.5 py-0.5 text-[9px] bg-surface-hover/50 rounded border border-border/30 text-textMuted font-mono">⌘</kbd>
-                            <kbd className="px-1.5 py-0.5 text-[9px] bg-surface-hover/50 rounded border border-border/30 text-textMuted font-mono">Enter</kbd>
-                          </div>
-                          <button
-                            type={isLoading ? "button" : "submit"}
-                            onClick={isLoading ? stopSession : undefined}
-                            disabled={!isLoading && !input.trim()}
-                            className={clsx(
-                              "relative px-3.5 py-2 flex items-center gap-1.5 rounded-lg font-medium text-xs transition-all duration-200 overflow-hidden",
-                              isLoading
-                                ? "bg-error/10 hover:bg-error/15 text-error border border-error/20"
-                                : input.trim()
-                                ? "bg-gradient-to-r from-primary to-accent text-white shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
-                                : "bg-surface-hover/50 text-textMuted cursor-not-allowed",
-                            )}
-                          >
-                            {isLoading ? (
-                              <>
-                                <Square className="w-3 h-3" />
-                                <span>Stop</span>
-                              </>
-                            ) : (
-                              <>
-                                <Send className="w-3 h-3" />
-                                <span>Send</span>
-                              </>
-                            )}
-                          </button>
-                        </div>
-                      </div>
-              </form>
-              <p className="mt-2.5 text-[10px] text-center text-textMuted/50">
-                100XPrompt can make mistakes. Verify important information.
-              </p>
-            </div>
-          </div>
-        </>
-      ) : activeTab === "diff" ? (
-              currentSessionId ? (
-                <SessionDiffViewer sessionId={currentSessionId} />
-              ) : (
-                <div className="h-full flex items-center justify-center">
-                  <div className="text-center">
-                    <GitBranch className="w-12 h-12 text-textMuted mx-auto mb-3" />
-                    <p className="text-sm text-textMuted">Select a session to view changes</p>
-                  </div>
-                </div>
-              )
-            ) : (
-              <CodeEditor />
-            )}
-          </div>
-
-          {showTodos && currentTodos.length > 0 && (
-            <div className="w-80 bg-surface/80 backdrop-blur-xl border-l border-border/50 flex flex-col animate-slide-in-left">
-              <div className="h-14 border-b border-border/50 flex items-center px-4 gap-3">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <CheckSquare className="w-4 h-4 text-primary" />
-                </div>
-                <span className="text-sm font-semibold flex-1">Tasks</span>
-                <button
-                  onClick={() => setShowTodos(false)}
-                  className="w-8 h-8 hover:bg-surface-hover rounded-lg transition-all flex items-center justify-center text-textMuted hover:text-textPrimary"
-                >
-                  <PanelLeftClose className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                <TodoList />
-              </div>
-            </div>
-          )}
-        </div>
-
-        {showTerminal && (
-          <div className="h-72 bg-surface/80 backdrop-blur-xl border-t border-border/50 flex flex-col animate-fade-in-up">
-            <div className="h-12 border-b border-border/50 flex items-center px-4 gap-3">
-              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                <TerminalIcon className="w-4 h-4 text-primary" />
-              </div>
-              <span className="text-sm font-semibold flex-1">Terminal</span>
-              <button
-                onClick={() => setShowTerminal(false)}
-                className="w-8 h-8 hover:bg-surface-hover rounded-lg transition-all flex items-center justify-center text-textMuted hover:text-textPrimary"
-              >
-                ×
-              </button>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <Terminal />
-            </div>
-          </div>
-        )}
-      </div>
-
-      {showSearch && (
-        <SearchPanel
-          onClose={() => setShowSearch(false)}
-          onOpenFile={(path, line) => {
-            setActiveTab("editor")
-            setShowSearch(false)
-          }}
-        />
-      )}
+      {/* ═══════════════════ DIALOGS ═══════════════════ */}
+      {renameSession && <RenameDialog session={renameSession} onClose={() => setRenameSession(null)} />}
+      {shareSession && <ShareDialog session={shareSession} onClose={() => setShareSession(null)} />}
+      {deleteSession && <DeleteDialog session={deleteSession} onClose={() => setDeleteSession(null)} />}
+      {forkSession && <ForkDialog session={forkSession} onClose={() => setForkSession(null)} />}
+      {childrenSession && <ChildrenDialog session={childrenSession} onClose={() => setChildrenSession(null)} />}
+      {diffSession && <DiffDialog session={diffSession} onClose={() => setDiffSession(null)} />}
     </div>
   )
 }

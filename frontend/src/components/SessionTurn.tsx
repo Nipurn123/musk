@@ -1,6 +1,6 @@
-import React from "react"
+import React, { useState } from "react"
 import { MessagePart } from "./MessagePart"
-import { User, Clock, Sparkles } from "lucide-react"
+import { User, ChevronDown, CheckCircle2, Loader2 } from "lucide-react"
 import { clsx } from "clsx"
 
 interface SessionTurnProps {
@@ -10,62 +10,122 @@ interface SessionTurnProps {
   isLoading?: boolean
 }
 
-export function SessionTurn({ role, parts, timestamp, isLoading }: SessionTurnProps) {
+export function SessionTurn({ role, parts = [], timestamp, isLoading }: SessionTurnProps) {
   const isAssistant = role === "assistant"
 
+  // Group parts: text parts render inline, tool parts get a "Used a tool" collapsible wrapper
+  const textParts: unknown[] = []
+  const toolParts: unknown[] = []
+  const otherParts: unknown[] = []
+
+  const partsList = Array.isArray(parts) ? parts : []
+
+  partsList.forEach((part: any) => {
+    if (part.type === "text" || part.type === "reasoning") {
+      textParts.push(part)
+    } else if (part.type === "tool") {
+      toolParts.push(part)
+    } else {
+      otherParts.push(part)
+    }
+  })
+
+  const [toolsExpanded, setToolsExpanded] = useState(true)
+
+  // Check if all tools are completed
+  const allToolsDone = toolParts.every((p: any) => p.state?.status === "completed")
+  const hasRunningTools = toolParts.some((p: any) => p.state?.status === "running")
+
+  // Build tool group label
+  const toolGroupLabel = (() => {
+    if (toolParts.length === 0) return ""
+    const types = new Set(toolParts.map((p: any) => {
+      const tool = p.tool || ""
+      if (tool === "write") return "created files"
+      if (tool === "edit" || tool === "multiedit") return "edited files"
+      if (tool === "bash") return "ran commands"
+      if (tool === "read") return "read files"
+      if (tool === "grep" || tool === "glob") return "searched"
+      if (tool === "webfetch" || tool === "websearch") return "browsed the web"
+      return "used tools"
+    }))
+    const labels = Array.from(types)
+    if (labels.length === 1) return labels[0].charAt(0).toUpperCase() + labels[0].slice(1)
+    if (labels.length > 2) return "Used multiple tools"
+    return labels.join(" & ").replace(/^./, (c) => c.toUpperCase())
+  })()
+
   return (
-    <div className={clsx("relative py-5 px-4 group animate-slide-up-fade", isAssistant && "bg-gradient-to-b from-surface/40 to-transparent")}>
-      {isAssistant && (
-        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-      )}
-      <div className="max-w-4xl mx-auto flex gap-4 relative">
-        <div className="shrink-0 pt-0.5">
+    <div className={clsx("py-6 px-4 md:px-6", isAssistant && "bg-surface/30")}>
+      <div className="max-w-3xl mx-auto flex gap-4">
+        {/* Avatar */}
+        <div className="shrink-0 pt-1">
           {isAssistant ? (
-            <div className="relative group/avatar">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary to-accent rounded-xl blur-lg opacity-40 group-hover/avatar:opacity-60 transition-opacity duration-300" />
-              <div className="relative w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/25 group-hover/avatar:scale-105 transition-transform duration-200">
-                <Sparkles className="w-4.5 h-4.5 text-white" />
-              </div>
+            <div className="w-7 h-7 rounded-lg bg-surface border border-border flex items-center justify-center p-1 shadow-sm">
+              <img
+                src="/assets/100X_Prompt.svg"
+                alt="100xprompt"
+                className="w-full h-full object-contain"
+              />
             </div>
           ) : (
-            <div className="w-9 h-9 rounded-xl bg-surface-hover/80 border border-border/60 flex items-center justify-center group-hover:border-primary/30 transition-colors duration-200">
-              <User className="w-4.5 h-4.5 text-textSecondary" />
+            <div className="w-7 h-7 rounded-full bg-surface-hover border border-border flex items-center justify-center shadow-sm">
+              <User className="w-3.5 h-3.5 text-textSecondary" />
             </div>
           )}
         </div>
 
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2.5 mb-2.5">
-            <span
-              className={clsx(
-                "text-sm font-semibold tracking-tight",
-                isAssistant ? "text-primary" : "text-textSecondary",
-              )}
-            >
-              {isAssistant ? "100XPrompt" : "You"}
-            </span>
-            {timestamp && (
-              <span className="text-[10px] text-textMuted flex items-center gap-1 px-2 py-0.5 bg-surface/60 rounded-full border border-border/30">
-                <Clock className="w-2.5 h-2.5" />
-                {new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-              </span>
-            )}
-          </div>
+          {/* Text parts */}
+          {textParts.map((part, i) => (
+            <MessagePart key={(part as any).id || `text-${i}`} part={part} />
+          ))}
 
-          <div className="space-y-2.5">
-            {parts.map((part, i) => (
-              <MessagePart key={part.id || i} part={part} />
-            ))}
-            {isLoading && (
-              <div className="flex items-center gap-3 py-3 px-4 bg-surface/60 border border-border/40 rounded-xl animate-pulse-glow-subtle">
-                <div className="relative">
-                  <div className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                  <div className="w-2 h-2 rounded-full bg-primary absolute inset-0" />
+          {/* Tool group — Claude's "Used a tool ∨" pattern */}
+          {toolParts.length > 0 && (
+            <div className="mt-3 first:mt-0 mb-4 last:mb-0">
+              <button
+                onClick={() => setToolsExpanded(!toolsExpanded)}
+                className="flex items-center gap-2 text-[13px] font-medium text-textMuted hover:text-textSecondary transition-all py-1.5 px-2 -ml-2 rounded-lg hover:bg-surface-hover/30 group"
+              >
+                <div className="flex items-center gap-1.5">
+                  <span>{toolGroupLabel}</span>
+                  {allToolsDone && !hasRunningTools ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-success/60" />
+                  ) : hasRunningTools ? (
+                    <Loader2 className="w-3 h-3 text-primary animate-spin" />
+                  ) : null}
                 </div>
-                <span className="text-sm text-textSecondary font-medium">Thinking...</span>
+                <ChevronDown className={clsx(
+                  "w-3.5 h-3.5 text-textMuted/40 transition-transform duration-200",
+                  !toolsExpanded && "-rotate-90"
+                )} />
+              </button>
+
+            {toolsExpanded && (
+              <div className="mt-2 ml-1 space-y-1 animate-in fade-in slide-in-from-top-2 duration-300">
+                {toolParts.map((part, i) => (
+                  <MessagePart key={(part as any).id || `tool-${i}`} part={part} />
+                ))}
               </div>
             )}
           </div>
+        )}
+
+        {/* Other parts */}
+
+          {otherParts.map((part, i) => (
+            <MessagePart key={(part as any).id || `other-${i}`} part={part} />
+          ))}
+
+          {/* Loading indicator */}
+          {isLoading && (
+            <div className="flex items-center gap-2 py-2 mt-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+              <span className="text-[14px] text-textMuted">Thinking...</span>
+            </div>
+          )}
         </div>
       </div>
     </div>
