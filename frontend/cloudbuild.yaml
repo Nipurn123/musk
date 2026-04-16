@@ -1,0 +1,36 @@
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--network=cloudbuild'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/100xprompt-web'
+      - '.'
+    timeout: '1200s'
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/100xprompt-web']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'xprompt-web'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/100xprompt-web'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
+      - '--timeout'
+      - '360'
+
+images:
+  - 'gcr.io/$PROJECT_ID/100xprompt-web'
+
+timeout: '1800s'

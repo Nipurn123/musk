@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@100xprompt/sdk",
+  "version": "1.1.13",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "typecheck": "tsgo --noEmit",
+    "build": "./script/build.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./server": "./src/server.ts",
+    "./v2": "./src/v2/index.ts",
+    "./v2/client": "./src/v2/client.ts",
+    "./v2/server": "./src/v2/server.ts"
+  },
+  "files": [
+    "dist"
+  ],
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.88.1",
+    "@tsconfig/node22": "5.8.2",
+    "@types/node": "5.8.2",
+    "typescript": "5.8.2",
+    "@typescript/native-preview": "5.8.2"
+  },
+  "dependencies": {},
+  "publishConfig": {
+    "directory": "dist"
+  }
+}

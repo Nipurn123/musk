@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "@100xprompt/sdk",
+  "version": "1.1.13",
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./server": "./src/server.ts",
+    "./v2": "./src/v2/index.ts",
+    "./v2/client": "./src/v2/client.ts",
+    "./v2/server": "./src/v2/server.ts"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "0.88.1",
+    "@tsconfig/node22": "22.0.2",
+    "@types/node": "22.13.9",
+    "typescript": "5.8.2",
+    "@typescript/native-preview": "7.0.0-dev.20251207.1"
+  },
+  "dependencies": {}
+}
