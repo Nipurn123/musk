@@ -119,7 +119,8 @@ export function CodeEditor() {
       if (!file) return
       setSavingFiles((prev) => new Set(prev).add(path))
       try {
-        console.warn("File write not implemented in SDK - content saved locally only")
+        // Implement real file save via SDK
+        await client.file.write({ path, content: file.content })
         setOpenFiles((prev) => prev.map((f) => (f.path === path ? { ...f, modified: false } : f)))
       } catch (err) {
         console.error("Failed to save file:", err)
@@ -132,7 +133,7 @@ export function CodeEditor() {
         })
       }
     },
-    [openFiles],
+    [openFiles, client.file],
   )
 
   const currentFile = openFiles.find((f) => f.path === activeFile)
@@ -143,35 +144,36 @@ export function CodeEditor() {
   }, [currentFile?.language])
 
   return (
-    <div className="flex-1 flex bg-background min-h-0 border-t border-border/50">
-      <div className="w-64 bg-surface/50 backdrop-blur-xl border-r border-border/50 flex flex-col min-h-0">
+    <div className="flex-1 flex bg-background min-h-0">
+      <div className="w-60 bg-surface/30 border-r border-border/50 flex flex-col min-h-0">
         <FileTree
           onFileClick={(node) => handleSelect(node.path)}
           selectedPath={activeFile || undefined}
           newFiles={newFiles}
           className="border-0 bg-transparent"
+          hideHeader
         />
       </div>
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <div className="flex items-center gap-px bg-surface/30 border-b border-border/50 overflow-x-auto h-11 no-scrollbar">
+        <div className="flex items-center gap-px bg-surface/10 border-b border-border/50 overflow-x-auto h-10 no-scrollbar">
           {openFiles.map((file) => (
             <button
               key={file.path}
               onClick={() => setActiveFile(file.path)}
               className={clsx(
-                "group relative flex items-center gap-2 px-4 h-full min-w-[120px] max-w-[200px] text-sm transition-all duration-200 border-r border-border/30",
+                "group relative flex items-center gap-2 px-3 h-full min-w-[100px] max-w-[180px] text-[13px] transition-all duration-200 border-r border-border/30",
                 activeFile === file.path
                   ? "bg-background text-primary"
-                  : "bg-surface/20 text-textSecondary hover:bg-surface/40 hover:text-textPrimary",
+                  : "bg-surface/5 text-textSecondary hover:bg-surface/20 hover:text-textPrimary",
               )}
             >
               {activeFile === file.path && (
-                <div className="absolute top-0 inset-x-0 h-0.5 bg-primary" />
+                <div className="absolute top-0 inset-x-0 h-[2px] bg-primary" />
               )}
               <span className="truncate flex-1">{file.name}</span>
-              <div className="flex items-center justify-center w-5">
+              <div className="flex items-center justify-center w-4 h-4">
                 {file.modified ? (
-                  <Circle className="w-2 h-2 fill-warning text-warning group-hover:hidden" />
+                  <Circle className="w-1.5 h-1.5 fill-warning text-warning group-hover:hidden" />
                 ) : null}
                 <button
                   onClick={(e) => {
@@ -179,7 +181,7 @@ export function CodeEditor() {
                     handleCloseFile(file.path)
                   }}
                   className={clsx(
-                    "hover:bg-white/10 rounded-md p-0.5 transition-all",
+                    "hover:bg-white/10 rounded p-0.5 transition-all",
                     file.modified ? "hidden group-hover:block" : "opacity-0 group-hover:opacity-100"
                   )}
                 >
@@ -192,31 +194,30 @@ export function CodeEditor() {
         <div className="flex-1 overflow-hidden relative">
           {isLoading && (
             <div className="absolute inset-0 z-10 bg-background/50 backdrop-blur-[1px] flex items-center justify-center">
-              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
           )}
           {currentFile ? (
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between px-4 py-2 bg-surface/10 border-b border-border/30">
-                <div className="flex items-center gap-2 text-xs text-textMuted overflow-hidden">
-                  <Edit3 className="w-3.5 h-3.5 shrink-0" />
+              <div className="flex items-center justify-between px-4 py-1.5 bg-surface/5 border-b border-border/30">
+                <div className="flex items-center gap-2 text-[11px] text-textMuted overflow-hidden">
                   <span className="truncate">{currentFile.path}</span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
                   {currentFile.modified && (
-                    <span className="text-[10px] text-warning bg-warning/10 px-2 py-0.5 rounded-full border border-warning/20">Unsaved Changes</span>
+                    <span className="text-[10px] text-warning px-1.5 py-0.5">Modified</span>
                   )}
                   <Button
                     size="sm"
                     variant="primary"
                     onClick={() => handleSave(currentFile.path)}
                     disabled={!currentFile.modified || savingFiles.has(currentFile.path)}
-                    className="h-7 text-[11px] px-3"
+                    className="h-6 text-[10px] px-2.5"
                   >
                     {savingFiles.has(currentFile.path) ? (
-                      <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                      <Loader2 className="w-2.5 h-2.5 animate-spin mr-1" />
                     ) : (
-                      <Save className="w-3 h-3 mr-1" />
+                      <Save className="w-2.5 h-2.5 mr-1" />
                     )}
                     Save
                   </Button>
@@ -244,12 +245,12 @@ export function CodeEditor() {
           ) : (
             <div className="h-full flex items-center justify-center">
               <div className="text-center max-w-xs animate-fade-in">
-                <div className="w-20 h-20 bg-primary/5 rounded-3xl flex items-center justify-center mx-auto mb-6">
-                  <FileCode className="w-10 h-10 text-primary/40" />
+                <div className="w-16 h-16 bg-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                  <FileCode className="w-8 h-8 text-primary/30" />
                 </div>
-                <p className="text-textPrimary font-semibold mb-2">Editor</p>
-                <p className="text-textMuted text-sm">
-                  Select a file from the explorer on the left to start editing.
+                <p className="text-textPrimary font-semibold text-sm mb-1">Editor</p>
+                <p className="text-textMuted text-xs">
+                  Select a file from the explorer to start editing.
                 </p>
               </div>
             </div>

@@ -50,7 +50,7 @@ interface SymbolMatch {
 
 interface SearchPanelProps {
   onClose: () => void
-  onOpenFile: (path: string, line?: number) => void
+  onOpenFile?: (path: string, line?: number) => void
 }
 
 export function SearchPanel({ onClose, onOpenFile }: SearchPanelProps) {
@@ -124,10 +124,10 @@ export function SearchPanel({ onClose, onOpenFile }: SearchPanelProps) {
         const selected = results[selectedIndex]
         if (activeTab === "text") {
           const match = selected as TextMatch
-          onOpenFile(match.path.text, match.line_number)
+          onOpenFile?.(match.path.text, match.line_number)
         } else if (activeTab === "file") {
           const match = selected as FileMatch
-          onOpenFile(match.path)
+          onOpenFile?.(match.path)
         }
         onClose()
       }
@@ -174,7 +174,7 @@ export function SearchPanel({ onClose, onOpenFile }: SearchPanelProps) {
         key={`${match.path.text}-${match.line_number}`}
         data-index={index}
         onClick={() => {
-          onOpenFile(match.path.text, match.line_number)
+          onOpenFile?.(match.path.text, match.line_number)
           onClose()
         }}
         className={clsx(
@@ -210,7 +210,7 @@ export function SearchPanel({ onClose, onOpenFile }: SearchPanelProps) {
         data-index={index}
         onClick={() => {
           if (!isDirectory) {
-            onOpenFile(match.path)
+            onOpenFile?.(match.path)
             onClose()
           }
         }}
@@ -242,7 +242,7 @@ export function SearchPanel({ onClose, onOpenFile }: SearchPanelProps) {
         key={`${match.path}-${match.name}`}
         data-index={index}
         onClick={() => {
-          onOpenFile(match.path, match.line)
+          onOpenFile?.(match.path, match.line)
           onClose()
         }}
         className={clsx(

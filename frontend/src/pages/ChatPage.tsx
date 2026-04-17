@@ -10,20 +10,14 @@ import {
   Terminal as TerminalIcon,
   CheckSquare,
   Square,
-  Code2,
   X,
-  GitBranch,
   ChevronDown,
 } from "lucide-react"
 import { useAuthStore, useGlobalStore, useCurrentSessionMessages, useCurrentSessionStatus } from "../store"
 import { useSDK } from "../context"
 import { SessionTurn } from "../components/SessionTurn"
-import { FileTree } from "../components/FileTree"
 import { Terminal } from "../components/Terminal"
 import { TodoList } from "../components/TodoList"
-import { DiffPanel } from "../components/DiffPanel"
-import { SessionDiffViewer } from "../components/SessionDiffViewer"
-import { CodeEditor } from "../components/CodeEditor"
 import { ArtifactViewer } from "../components/ArtifactViewer"
 import { useEventHandler } from "../hooks/useEventHandler"
 import { SkeletonList } from "../components/ui"
@@ -75,7 +69,6 @@ export default function ChatPage() {
     setMessages,
     setParts,
     setProviders,
-    diffs,
     todos,
   } = useGlobalStore()
 
@@ -93,9 +86,9 @@ export default function ChatPage() {
 
   // Panel states
   const [sidePanel, setSidePanel] = useState<"sessions" | "search" | null>("sessions")
-  const [rightPanel, setRightPanel] = useState<"editor" | "diff" | "terminal" | "todos" | "artifact" | null>(null)
+  const [rightPanel, setRightPanel] = useState<"terminal" | "todos" | "artifact" | null>(null)
   const [showSettings, setShowSettings] = useState(false)
-  const [artifactData, setArtifactData] = useState<{ filename: string; content: string; isNew: boolean } | null>(null)
+  const [artifactData, setArtifactData] = useState<{ filename: string; content: string; type: "created" | "modified" | "normal" } | null>(null)
 
   const [isAborting, setIsAborting] = useState(false)
   const [isLoadingSessions, setIsLoadingSessions] = useState(true)
@@ -125,7 +118,7 @@ export default function ChatPage() {
 
   // Listen for artifact open events from file tool cards
   useEffect(() => {
-    function handleArtifactOpen(e: CustomEvent<{ filename: string; content: string; isNew: boolean }>) {
+    function handleArtifactOpen(e: CustomEvent<{ filename: string; content: string; type: "created" | "modified" | "normal" }>) {
       setArtifactData(e.detail)
       setRightPanel("artifact")
     }
@@ -286,11 +279,10 @@ export default function ChatPage() {
     return map
   }, [providers])
 
-  const currentDiffs = currentSessionId ? diffs.get(currentSessionId) || [] : []
   const currentTodos = currentSessionId ? todos.get(currentSessionId) || [] : []
 
   // ─── Right panel title ───
-  const rightPanelTitle = rightPanel === "editor" ? "Editor" : rightPanel === "diff" ? "Changes" : rightPanel === "terminal" ? "Terminal" : rightPanel === "todos" ? "Tasks" : rightPanel === "artifact" && artifactData ? artifactData.filename.split("/").pop() || "File" : ""
+  const rightPanelTitle = rightPanel === "terminal" ? "Terminal" : rightPanel === "todos" ? "Tasks" : rightPanel === "artifact" && artifactData ? artifactData.filename.split("/").pop() || "File" : ""
 
   return (
     <div className="h-screen flex bg-background">
@@ -339,29 +331,6 @@ export default function ChatPage() {
             >
               <MessageSquare className="w-4 h-4" />
               Chats
-            </button>
-            <button
-              onClick={() => setRightPanel(rightPanel === "diff" ? null : "diff")}
-              className={clsx(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
-                rightPanel === "diff" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
-              )}
-            >
-              <GitBranch className="w-4 h-4" />
-              Changes
-              {currentDiffs.length > 0 && (
-                <span className="ml-auto text-[11px] text-textMuted bg-surface-hover rounded-full px-1.5">{currentDiffs.length}</span>
-              )}
-            </button>
-            <button
-              onClick={() => setRightPanel(rightPanel === "editor" ? null : "editor")}
-              className={clsx(
-                "w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] transition-colors",
-                rightPanel === "editor" ? "bg-surface-hover text-textPrimary" : "text-textSecondary hover:bg-surface-hover"
-              )}
-            >
-              <Code2 className="w-4 h-4" />
-              Code
             </button>
           </div>
 
@@ -414,9 +383,6 @@ export default function ChatPage() {
             <div className="flex-1 overflow-hidden">
               <SearchPanel
                 onClose={() => setSidePanel("sessions")}
-                onOpenFile={(path, line) => {
-                  setRightPanel("editor")
-                }}
               />
             </div>
           )}
@@ -545,12 +511,15 @@ export default function ChatPage() {
 
       {/* ═══════════════════ RIGHT PANEL (editor / diff / terminal / todos) ═══════════════════ */}
       {rightPanel && (
-        <div className="w-[420px] bg-surface border-l border-border flex flex-col shrink-0 animate-slide-in-left">
+        <div className={clsx(
+          "bg-surface border-l border-border flex flex-col shrink-0 animate-slide-in-left transition-all duration-300",
+          rightPanel === "artifact" ? "w-[700px]" : "w-[420px]"
+        )}>
           {/* Header — artifact has its own, skip for that */}
           {rightPanel !== "artifact" && (
-            <div className="flex items-center justify-between px-2 py-2 bg-surface gap-2">
+            <div className="flex items-center justify-between px-2 py-2 bg-surface gap-2 border-b border-border">
               <div className="flex items-center gap-2 flex-1 overflow-hidden pl-3">
-                <h2 className="text-sm font-normal text-textSecondary truncate">{rightPanelTitle}</h2>
+                <h2 className="text-sm font-semibold text-textPrimary truncate">{rightPanelTitle}</h2>
               </div>
               <button
                 onClick={() => setRightPanel(null)}
@@ -568,17 +537,9 @@ export default function ChatPage() {
               <ArtifactViewer
                 filename={artifactData.filename}
                 content={artifactData.content}
-                diffType={artifactData.isNew ? "created" : "normal"}
+                diffType={artifactData.type}
                 onClose={() => { setRightPanel(null); setArtifactData(null) }}
               />
-            )}
-            {rightPanel === "editor" && <CodeEditor />}
-            {rightPanel === "diff" && (
-              currentSessionId ? <SessionDiffViewer sessionId={currentSessionId} /> : (
-                <div className="h-full flex items-center justify-center">
-                  <p className="text-sm text-textMuted">Select a session to view changes</p>
-                </div>
-              )
             )}
             {rightPanel === "terminal" && <Terminal />}
             {rightPanel === "todos" && (

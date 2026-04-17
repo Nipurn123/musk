@@ -30,7 +30,7 @@ export interface UseFileTreeOptions {
 }
 
 export function useFileTree(options: UseFileTreeOptions = {}): FileTreeState & FileTreeActions {
-  const { rootPath = "", autoRefresh = true, onFileClick, onFileUpdated } = options
+  const { rootPath = "/", autoRefresh = true, onFileClick, onFileUpdated } = options
   const sdk = useSDK()
 
   const [tree, setTree] = useState<TreeNode[]>([])
@@ -43,8 +43,9 @@ export function useFileTree(options: UseFileTreeOptions = {}): FileTreeState & F
     setLoading(true)
     setError(null)
     try {
+      console.log("[FileTree] Loading files with rootPath:", rootPath, "sdk.directory:", sdk.directory)
       const response = await sdk.client.file.list({ path: rootPath })
-      console.log("File response:", response)
+      console.log("[FileTree] Response:", response)
       const data = response.data
 
       if (!Array.isArray(data)) {

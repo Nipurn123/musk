@@ -225,12 +225,12 @@ export function AIAssistantButton() {
 
   return (
     <>
-      {/* Floating Button */}
+    {/* Floating Button */}
+    <div className="fixed bottom-24 right-8 z-[9999]">
       <button
         onClick={() => setIsOpen(true)}
         className={cn(
-          'fixed z-[9999] w-16 h-16 rounded-full',
-          'bottom-8 right-8',
+          'w-16 h-16 rounded-full',
           'flex items-center justify-center',
           'transition-all duration-500 ease-out',
           'group relative overflow-hidden',
@@ -260,18 +260,19 @@ export function AIAssistantButton() {
           <Mic className="w-7 h-7 text-white relative z-10" />
         )}
       </button>
+    </div>
 
-      {/* Panel */}
-      {isOpen && (
-        <div 
-          className={cn(
-            'fixed z-[9998] w-[360px]',
-            'bottom-24 right-6',
-            'rounded-3xl overflow-hidden',
-            'animate-scale-in origin-bottom-right',
-            'shadow-2xl shadow-black/50'
-          )}
-        >
+    {/* Panel */}
+    {isOpen && (
+      <div 
+        className={cn(
+          'fixed z-[9998] w-[360px]',
+          'bottom-40 right-8',
+          'rounded-3xl overflow-hidden',
+          'animate-scale-in origin-bottom-right',
+          'shadow-2xl shadow-black/50'
+        )}
+      >
           {/* Glassmorphic background */}
           <div className="absolute inset-0 bg-surface/95 backdrop-blur-xl" />
           <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5" />
