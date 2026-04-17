@@ -90,7 +90,7 @@ export function WebSearchTool({ query, output, status, error }: WebSearchToolPro
       const timer = setTimeout(() => {
         setIsExpanded(false)
         wasRunningRef.current = false
-      }, 500)
+      }, 400)
       return () => clearTimeout(timer)
     }
   }, [status])
@@ -98,61 +98,49 @@ export function WebSearchTool({ query, output, status, error }: WebSearchToolPro
   const results = parseSearchResults(output || "")
 
   return (
-    <div>
+    <div className="p-3">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 py-0.5 px-1 w-full text-left group hover:bg-surface-hover/20 rounded transition-colors -mx-1"
+        className="flex items-center gap-2 w-full text-left group"
       >
-        <div className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-          {status === "running" ? (
-            <Loader2 className="w-3 h-3 text-primary animate-spin" />
-          ) : status === "completed" ? (
-            <CheckCircle2 className="w-3 h-3 text-success/60" strokeWidth={2.5} />
-          ) : (
-            <Search className="w-3 h-3 text-textMuted/40 group-hover:text-textMuted/70 transition-colors" />
-          )}
-        </div>
-        
-        <span className="text-xs text-textSecondary/90 group-hover:text-textSecondary transition-colors truncate">
+        <ChevronDown className={clsx(
+          "w-4 h-4 text-textMuted/50 transition-transform duration-200",
+          !isExpanded && "-rotate-90"
+        )} />
+        <span className="text-[14px] text-textSecondary truncate">
           {query || "search"}
         </span>
-        
         {status === "completed" && results.length > 0 && (
-          <span className="text-[10px] text-textMuted/40 tabular-nums">
+          <span className="text-[13px] text-textMuted tabular-nums">
             {results.length} results
           </span>
         )}
-        
-        <ChevronDown className={clsx(
-          "w-3 h-3 text-textMuted/25 transition-transform ml-auto",
-          !isExpanded && "-rotate-90"
-        )} />
       </button>
       
       {isExpanded && status === "completed" && results.length > 0 && (
-        <div className="mt-1.5 ml-4.5 border-l border-border/20 pl-2.5 space-y-0.5">
+        <div className="mt-3 space-y-2">
           {results.map((result, idx) => (
             <div
               key={idx}
-              className="rounded border border-border/10 overflow-hidden bg-surface/20"
+              className="rounded-lg bg-surface/50 border border-border/40 overflow-hidden"
             >
               <a
                 href={result.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-start gap-1.5 p-1.5 hover:bg-surface-hover/20 transition-colors group"
+                className="flex items-start gap-3 p-3 hover:bg-surface-hover/30 transition-colors group"
               >
-                <div className="w-4 h-4 rounded bg-primary/10 flex items-center justify-center shrink-0 mt-0.5">
-                  <span className="text-[9px] font-bold text-primary/80">{idx + 1}</span>
+                <div className="w-6 h-6 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-[12px] font-bold text-primary">{idx + 1}</span>
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 mb-0.5">
-                    <span className="text-[11px] font-medium text-textSecondary/90 group-hover:text-primary/80 transition-colors truncate">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[14px] font-medium text-textSecondary group-hover:text-primary transition-colors truncate">
                       {result.title}
                     </span>
-                    <ExternalLink className="w-2.5 h-2.5 text-textMuted/20 group-hover:text-primary/50 transition-colors shrink-0" />
+                    <ExternalLink className="w-3.5 h-3.5 text-textMuted/30 group-hover:text-primary/50 transition-colors shrink-0" />
                   </div>
-                  <span className="text-[10px] text-textMuted/40 font-mono">
+                  <span className="text-[12px] text-textMuted font-mono">
                     {getDomain(result.url)}
                   </span>
                 </div>
@@ -163,8 +151,8 @@ export function WebSearchTool({ query, output, status, error }: WebSearchToolPro
       )}
       
       {isExpanded && status === "completed" && results.length === 0 && output && (
-        <div className="ml-4.5 mt-1.5 rounded border border-border/10 overflow-hidden bg-surface/20 p-2 max-h-32 overflow-y-auto">
-          <pre className="text-[11px] font-mono text-textSecondary/70 whitespace-pre-wrap break-words">
+        <div className="mt-3 rounded-lg bg-surface/50 border border-border/40 p-3 max-h-40 overflow-y-auto">
+          <pre className="text-[13px] font-mono text-textMuted whitespace-pre-wrap break-words">
             {output.slice(0, 1000)}
             {output.length > 1000 && "..."}
           </pre>
@@ -172,7 +160,7 @@ export function WebSearchTool({ query, output, status, error }: WebSearchToolPro
       )}
       
       {error && (
-        <div className="ml-4.5 mt-1 p-2 bg-error/10 rounded text-[11px] text-error/90">
+        <div className="mt-2 p-3 bg-error/10 rounded-lg text-[13px] text-error">
           {error}
         </div>
       )}

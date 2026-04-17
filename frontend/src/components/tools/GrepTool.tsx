@@ -85,7 +85,7 @@ function highlightMatch(content: string, pattern: string): React.ReactNode {
     
     return parts.map((part, i) => 
       regex.test(part) ? (
-        <span key={i} className="bg-primary/15 text-primary/90 rounded px-0.5">{part}</span>
+        <span key={i} className="bg-primary/20 text-primary rounded px-0.5">{part}</span>
       ) : (
         part
       )
@@ -108,7 +108,7 @@ export function GrepTool({ pattern, path, include, output, status, error }: Grep
       const timer = setTimeout(() => {
         setIsExpanded(false)
         wasRunningRef.current = false
-      }, 500)
+      }, 400)
       return () => clearTimeout(timer)
     }
   }, [status])
@@ -129,74 +129,61 @@ export function GrepTool({ pattern, path, include, output, status, error }: Grep
   }
 
   return (
-    <div>
+    <div className="p-3">
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="flex items-center gap-2 py-0.5 px-1 w-full text-left group hover:bg-surface-hover/20 rounded transition-colors -mx-1"
+        className="flex items-center gap-2 w-full text-left group"
       >
-        <div className="w-3.5 h-3.5 flex items-center justify-center shrink-0">
-          {status === "running" ? (
-            <Loader2 className="w-3 h-3 text-primary animate-spin" />
-          ) : status === "completed" ? (
-            <CheckCircle2 className="w-3 h-3 text-success/60" strokeWidth={2.5} />
-          ) : (
-            <Search className="w-3 h-3 text-textMuted/40 group-hover:text-textMuted/70 transition-colors" />
-          )}
-        </div>
-        
-        <code className="text-xs text-textSecondary/90 group-hover:text-textSecondary transition-colors truncate font-mono">
-          {pattern || "search"}
-        </code>
-        
-        {status === "completed" && matchCount > 0 && (
-          <span className="text-[10px] text-textMuted/40 tabular-nums">
-            {matchCount} in {fileCount}
-          </span>
-        )}
-        
-        {status === "completed" && matchCount === 0 && (
-          <span className="text-[10px] text-textMuted/30">no matches</span>
-        )}
-        
         <ChevronDown className={clsx(
-          "w-3 h-3 text-textMuted/25 transition-transform ml-auto",
+          "w-4 h-4 text-textMuted/50 transition-transform duration-200",
           !isExpanded && "-rotate-90"
         )} />
+        <code className="text-[14px] text-textSecondary font-mono truncate">
+          {pattern || "search"}
+        </code>
+        {status === "completed" && matchCount > 0 && (
+          <span className="text-[13px] text-textMuted tabular-nums">
+            {matchCount} matches in {fileCount} files
+          </span>
+        )}
+        {status === "completed" && matchCount === 0 && (
+          <span className="text-[13px] text-textMuted">no matches</span>
+        )}
       </button>
       
       {isExpanded && status === "completed" && matchCount > 0 && (
-        <div className="mt-1.5 ml-4.5 border-l border-border/20 pl-2.5 space-y-0.5">
+        <div className="mt-3 space-y-2">
           {Array.from(groupedResults.entries()).map(([file, matches]) => (
-            <div key={file} className="rounded border border-border/10 overflow-hidden bg-surface/20">
+            <div key={file} className="rounded-lg bg-surface/50 border border-border/40 overflow-hidden">
               <button
                 onClick={() => toggleFile(file)}
-                className="w-full flex items-center gap-1.5 px-2 py-1.5 bg-surface/30 hover:bg-surface-hover/20 transition-colors"
+                className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-hover/30 transition-colors"
               >
                 {expandedFiles.has(file) ? (
-                  <ChevronDown className="w-2.5 h-2.5 text-textMuted/50" />
+                  <ChevronDown className="w-4 h-4 text-textMuted/50" />
                 ) : (
-                  <ChevronRight className="w-2.5 h-2.5 text-textMuted/50" />
+                  <ChevronRight className="w-4 h-4 text-textMuted/50" />
                 )}
-                <FileText className="w-3 h-3 text-textMuted/50" />
-                <span className="text-[11px] font-mono text-textSecondary/80 truncate flex-1 text-left">
+                <FileText className="w-4 h-4 text-textMuted" />
+                <span className="text-[13px] font-mono text-textSecondary truncate flex-1 text-left">
                   {file}
                 </span>
-                <span className="text-[10px] text-textMuted/30 tabular-nums">
+                <span className="text-[12px] text-textMuted tabular-nums">
                   {matches.length}
                 </span>
               </button>
               
               {expandedFiles.has(file) && (
-                <div className="border-t border-border/10 bg-surface/10">
+                <div className="border-t border-border/30 divide-y divide-border/20">
                   {matches.map((match, idx) => (
                     <div
                       key={idx}
-                      className="flex items-start gap-2 px-2 py-1 hover:bg-surface-hover/10 transition-colors border-b border-border/5 last:border-0"
+                      className="flex items-start gap-3 px-3 py-2 hover:bg-surface-hover/20 transition-colors"
                     >
-                      <span className="text-[10px] text-textMuted/30 font-mono tabular-nums w-5 text-right shrink-0 pt-0.5">
+                      <span className="text-[12px] text-textMuted font-mono tabular-nums w-6 text-right shrink-0 pt-0.5">
                         {match.line}
                       </span>
-                      <pre className="text-[11px] font-mono text-textSecondary/70 leading-relaxed whitespace-pre-wrap break-all flex-1">
+                      <pre className="text-[13px] font-mono text-textMuted leading-relaxed whitespace-pre-wrap break-all flex-1">
                         {highlightMatch(match.content, pattern)}
                       </pre>
                     </div>
@@ -209,7 +196,7 @@ export function GrepTool({ pattern, path, include, output, status, error }: Grep
       )}
       
       {error && (
-        <div className="ml-4.5 mt-1 p-2 bg-error/10 rounded text-[11px] text-error/90">
+        <div className="mt-2 p-3 bg-error/10 rounded-lg text-[13px] text-error">
           {error}
         </div>
       )}
