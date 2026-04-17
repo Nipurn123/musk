@@ -640,7 +640,7 @@ export default function ChatPage() {
         {/* ─── Input Area (Claude-style, mobile optimized) ─── */}
         <div className="px-2 pb-3 pt-1 md:px-4 md:pb-4">
           <div className="max-w-3xl mx-auto">
-            <form onSubmit={(e) => { e.preventDefault(); sendMessage() }}>
+            <form onSubmit={(e) => e.preventDefault()}>
               <div
                 className="flex flex-col bg-surface rounded-2xl md:rounded-[20px] cursor-text relative transition-all duration-200 border border-border/50"
                 style={{ boxShadow: '0 0.25rem 1.25rem hsl(0 0% 0% / 8%), 0 0 0 0.5px hsl(0 0% 100% / 6%)' }}
@@ -741,17 +741,25 @@ export default function ChatPage() {
                         )}
                       </div>
                       <button
-                        type={isLoading ? "button" : "submit"}
-                        onClick={isLoading ? stopSession : undefined}
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          if (isLoading) {
+                            stopSession()
+                          } else if (input.trim() || selectedImages.length > 0) {
+                            sendMessage()
+                          }
+                        }}
                         disabled={!isLoading && !input.trim() && selectedImages.length === 0}
                         className={clsx(
                           "h-7 w-7 md:h-8 md:w-8 rounded-lg flex items-center justify-center transition-colors active:scale-95",
-                          isLoading ? "text-error hover:bg-error/10"
-                            : (input.trim() || selectedImages.length > 0) ? "text-primary hover:bg-primary/10"
+                          isLoading ? "text-error hover:bg-error/10 cursor-pointer"
+                            : (input.trim() || selectedImages.length > 0) ? "text-primary hover:bg-primary/10 cursor-pointer"
                             : "text-textMuted/30 cursor-not-allowed",
                         )}
                       >
-                        {isLoading ? <Square className="w-3.5 h-3.5 md:w-4 md:h-4" /> : (
+                        {isLoading ? <Square className="w-3.5 h-3.5 md:w-4 md:h-4 fill-current" /> : (
                           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor" className="md:w-5 md:h-5"><path d="M2.925 4.382a1.686 1.686 0 0 1 2.39-1.307l11.712 5.498a1.16 1.16 0 0 1 0 2.104L5.314 16.175a1.686 1.686 0 0 1-2.389-1.307L3.658 11h5.592a.75.75 0 0 0 0-1.5H3.658z" /></svg>
                         )}
                       </button>
