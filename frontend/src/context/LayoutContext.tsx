@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo } from "react"
 
-type SidebarTab = "chat" | "files" | "settings"
-type PanelTab = "diff" | "terminal" | "todos"
+type SidebarTab = "sessions" | "search" | null
+type PanelTab = "terminal" | "todos" | "artifact" | null
 
 interface LayoutContextValue {
   sidebar: {
@@ -12,20 +12,10 @@ interface LayoutContextValue {
     setActiveTab: (tab: SidebarTab) => void
   }
   rightPanel: {
-    visible: boolean
-    toggle: () => void
-    setVisible: (visible: boolean) => void
     activeTab: PanelTab
     setActiveTab: (tab: PanelTab) => void
     width: number
     setWidth: (width: number) => void
-  }
-  bottomPanel: {
-    visible: boolean
-    toggle: () => void
-    setVisible: (visible: boolean) => void
-    height: number
-    setHeight: (height: number) => void
   }
 }
 
@@ -37,23 +27,12 @@ interface LayoutProviderProps {
 
 export function LayoutProvider({ children }: LayoutProviderProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chat")
-  const [rightPanelVisible, setRightPanelVisible] = useState(false)
-  const [rightPanelTab, setRightPanelTab] = useState<PanelTab>("diff")
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("sessions")
+  const [rightPanelTab, setRightPanelTab] = useState<PanelTab>(null)
   const [rightPanelWidth, setRightPanelWidth] = useState(400)
-  const [bottomPanelVisible, setBottomPanelVisible] = useState(false)
-  const [bottomPanelHeight, setBottomPanelHeight] = useState(200)
 
   const toggleSidebar = useCallback(() => {
     setSidebarCollapsed((prev) => !prev)
-  }, [])
-
-  const toggleRightPanel = useCallback(() => {
-    setRightPanelVisible((prev) => !prev)
-  }, [])
-
-  const toggleBottomPanel = useCallback(() => {
-    setBottomPanelVisible((prev) => !prev)
   }, [])
 
   const value = useMemo<LayoutContextValue>(
@@ -66,33 +45,18 @@ export function LayoutProvider({ children }: LayoutProviderProps) {
         setActiveTab: setSidebarTab,
       },
       rightPanel: {
-        visible: rightPanelVisible,
-        toggle: toggleRightPanel,
-        setVisible: setRightPanelVisible,
         activeTab: rightPanelTab,
         setActiveTab: setRightPanelTab,
         width: rightPanelWidth,
         setWidth: setRightPanelWidth,
-      },
-      bottomPanel: {
-        visible: bottomPanelVisible,
-        toggle: toggleBottomPanel,
-        setVisible: setBottomPanelVisible,
-        height: bottomPanelHeight,
-        setHeight: setBottomPanelHeight,
       },
     }),
     [
       sidebarCollapsed,
       toggleSidebar,
       sidebarTab,
-      rightPanelVisible,
-      toggleRightPanel,
       rightPanelTab,
       rightPanelWidth,
-      bottomPanelVisible,
-      toggleBottomPanel,
-      bottomPanelHeight,
     ],
   )
 

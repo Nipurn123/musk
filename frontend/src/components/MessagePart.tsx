@@ -1,11 +1,10 @@
-import React, { useState } from "react"
+import React from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import rehypeHighlight from "rehype-highlight"
 import {
   Terminal,
   FileText,
-  Edit3,
   Search,
   FolderSearch,
   Globe,
@@ -14,12 +13,9 @@ import {
   CheckCircle2,
   XCircle,
   Loader2,
-  ChevronDown,
   Settings2,
-  Download,
 } from "lucide-react"
 import { BasicTool } from "./BasicTool"
-import { clsx } from "clsx"
 
 interface MessagePartProps {
   part: any
@@ -85,7 +81,7 @@ function getFileExt(path: string) {
 /**
  * Extract clean code from diff output or read tool output.
  */
-function cleanFileContent(raw: string, toolName: string): string {
+function cleanFileContent(raw: string): string {
   if (!raw) return ""
 
   // 1. Strip all XML-like wrappers and line numbers
@@ -122,12 +118,12 @@ function cleanMarkdownText(text: string): string {
   let cleaned = text
 
   // 1. Replace <file> blocks containing line numbers with clean markdown code blocks
-  cleaned = cleaned.replace(/<file>([\s\S]*?)<\/file>/g, (_, content) => {
+  cleaned = cleaned.replace(/<file>([\s\S]*?)<\/file>/g, (_, content: string) => {
     const lines = content.trim().split("\n")
-    const hasLineNumbers = lines.some(l => /^\s*\d{5}\| /.test(l))
+    const hasLineNumbers = lines.some((l: string) => /^\s*\d{5}\| /.test(l))
     
     if (hasLineNumbers) {
-      const cleanedContent = lines.map(l => l.replace(/^\s*\d{5}\| /, "")).join("\n")
+      const cleanedContent = lines.map((l: string) => l.replace(/^\s*\d{5}\| /, "")).join("\n")
       return "```\n" + cleanedContent + "\n```"
     }
     
@@ -218,6 +214,22 @@ export function MessagePart({ part }: MessagePartProps) {
     )
   }
 
+  if (part.type === "image") {
+    const source = part.source || {}
+    if (source.type === "base64" && source.data) {
+      return (
+        <div className="my-3 max-w-md rounded-xl overflow-hidden border border-border shadow-sm">
+          <img
+            src={`data:${source.media_type || "image/png"};base64,${source.data}`}
+            alt="user upload"
+            className="w-full h-auto object-contain bg-surface"
+          />
+        </div>
+      )
+    }
+    return null
+  }
+
   if (part.type === "tool") {
     const toolName = part.tool || "unknown"
     const Icon = TOOL_ICONS[toolName] || Terminal
@@ -244,7 +256,7 @@ export function MessagePart({ part }: MessagePartProps) {
       const rawContent = typeof output === "string" ? output : JSON.stringify(output, null, 2)
       const isNewFile = toolName === "write"
       // Clean content from tags, line numbers and diffs
-      const fileContent = cleanFileContent(rawContent, toolName)
+      const fileContent = cleanFileContent(rawContent)
 
       return (
         <div className="mb-1.5 last:mb-0">

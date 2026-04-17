@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react"
-import { X, Copy, Check, FileCode, FileText, GitBranch, ChevronDown } from "lucide-react"
+import { X, Copy, Check, FileCode, GitBranch } from "lucide-react"
 import { clsx } from "clsx"
 
 interface ArtifactViewerProps {
@@ -333,7 +333,6 @@ function getDiffStats(hunks: DiffHunk[]) {
 // Main Component
 export function ArtifactViewer({ filename, content, language, diffType = "normal", onClose }: ArtifactViewerProps) {
   const [copied, setCopied] = useState(false)
-  const [showFullDiff, setShowFullDiff] = useState(true)
   const ext = getExtension(filename)
   const displayName = getDisplayName(filename)
   const lang = language || getLangFromExt(ext)
@@ -471,7 +470,6 @@ export function ArtifactViewer({ filename, content, language, diffType = "normal
 
   // Full file view (read/write)
   const lines = content.split("\n")
-  const lineNumWidth = String(lines.length).length
   const isCreated = diffType === "created"
   const isDeleted = diffType === "deleted"
 
