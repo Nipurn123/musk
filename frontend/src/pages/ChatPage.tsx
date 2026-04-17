@@ -77,6 +77,22 @@ export default function ChatPage() {
 
   useEventHandler()
 
+  const groupedMessages = useMemo(() => {
+    const result: any[] = []
+    for (const msg of messages) {
+      const last = result[result.length - 1]
+      const isToolOnly = msg.role === "assistant" && !msg.parts.some((p: any) => p.type === "text")
+      
+      if (last && last.role === "assistant" && msg.role === "assistant" && isToolOnly) {
+        last.parts = [...last.parts, ...msg.parts]
+        last.id = msg.id // Keep latest ID for loading state checks
+        continue
+      }
+      result.push({ ...msg, parts: [...msg.parts] })
+    }
+    return result
+  }, [messages])
+
   const [input, setInput] = useState("")
   const [selectedModel, setSelectedModel] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -425,7 +441,7 @@ export default function ChatPage() {
             </div>
           ) : (
             <div className="pb-4">
-              {messages.map((msg) => (
+              {groupedMessages.map((msg) => (
                 <SessionTurn
                   key={msg.id}
                   role={msg.role}
